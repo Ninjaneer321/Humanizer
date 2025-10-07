@@ -29,10 +29,10 @@ namespace Humanizer;
 /// </summary>
 public static class MetricNumeralExtensions
 {
-    const int limit = 27;
+    const int Limit = 27;
 
-    static readonly double BigLimit = Math.Pow(10, limit);
-    static readonly double SmallLimit = Math.Pow(10, -limit);
+    static readonly double BigLimit = Math.Pow(10, Limit);
+    static readonly double SmallLimit = Math.Pow(10, -Limit);
 
     /// <summary>
     /// Symbols is a list of every symbols for the Metric system.
@@ -223,7 +223,7 @@ public static class MetricNumeralExtensions
     /// <returns>A number build from a Metric representation</returns>
     static double BuildMetricNumber(string input, char last)
     {
-        double getExponent(List<char> symbols) => (symbols.IndexOf(last) + 1) * 3;
+        double getExponent(List<char> symbols) => (symbols.IndexOf(last) + 1) * 3.0;
         var number = double.Parse(input.Remove(input.Length - 1));
         var exponent = Math.Pow(10, Symbols[0]
             .Contains(last)
@@ -280,6 +280,12 @@ public static class MetricNumeralExtensions
         if (decimals.HasValue)
         {
             number = Math.Round(number, decimals.Value);
+        }
+
+        if (Math.Abs(number) >= 1000 && exponent < Symbols[0].Count)
+        {
+            number /= 1000;
+            exponent += 1;
         }
 
         var symbol = Math.Sign(exponent) == 1
