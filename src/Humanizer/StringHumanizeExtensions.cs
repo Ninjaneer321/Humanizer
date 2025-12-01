@@ -5,27 +5,39 @@ namespace Humanizer;
 /// <summary>
 /// Contains extension methods for humanizing string values.
 /// </summary>
-public static class StringHumanizeExtensions
+public static partial class StringHumanizeExtensions
 {
-    static readonly Regex PascalCaseWordPartsRegex = new(
-        $"({OptionallyCapitalizedWord}|{IntegerAndOptionalLowercaseLetters}|{Acronym}|{SequenceOfOtherLetters}){MidSentencePunctuation}",
+    const string PascalCaseWordPartsPattern = @"(\p{Lu}?\p{Ll}+|[0-9]+\p{Ll}*|\p{Lu}+(?=\p{Lu}|[0-9]|\b)|\p{Lo}+)[,;]?";
+    const string FreestandingSpacingCharPattern = @"\s[-_]|[-_]\s";
+
+#if NET7_0_OR_GREATER
+    [GeneratedRegex(PascalCaseWordPartsPattern, RegexOptions.IgnorePatternWhitespace | RegexOptions.ExplicitCapture)]
+    private static partial Regex PascalCaseWordPartsRegexGenerated();
+    
+    private static Regex PascalCaseWordPartsRegex() => PascalCaseWordPartsRegexGenerated();
+
+    [GeneratedRegex(FreestandingSpacingCharPattern)]
+    private static partial Regex FreestandingSpacingCharRegexGenerated();
+    
+    private static Regex FreestandingSpacingCharRegex() => FreestandingSpacingCharRegexGenerated();
+#else
+    private static readonly Regex PascalCaseWordPartsRegexField = new(
+        PascalCaseWordPartsPattern,
         RegexOptions.IgnorePatternWhitespace | RegexOptions.ExplicitCapture | RegexOptions.Compiled);
 
-    static readonly Regex FreestandingSpacingCharRegex =
-        new(@"\s[-_]|[-_]\s", RegexOptions.Compiled);
+    private static Regex PascalCaseWordPartsRegex() => PascalCaseWordPartsRegexField;
 
-    const string OptionallyCapitalizedWord = @"\p{Lu}?\p{Ll}+";
-    const string IntegerAndOptionalLowercaseLetters = @"[0-9]+\p{Ll}*";
-    const string Acronym = @"\p{Lu}+(?=\p{Lu}|[0-9]|\b)";
-    const string SequenceOfOtherLetters = @"\p{Lo}+";
-    const string MidSentencePunctuation = "[,;]?";
+    private static readonly Regex FreestandingSpacingCharRegexField = new(FreestandingSpacingCharPattern, RegexOptions.Compiled);
+
+    private static Regex FreestandingSpacingCharRegex() => FreestandingSpacingCharRegexField;
+#endif
 
     static string FromUnderscoreDashSeparatedWords(string input) =>
         string.Join(" ", input.Split(['_', '-']));
 
     static string FromPascalCase(string input)
     {
-        var result = string.Join(" ", PascalCaseWordPartsRegex
+        var result = string.Join(" ", PascalCaseWordPartsRegex()
             .Matches(input)
             // ReSharper disable once RedundantEnumerableCastCall
             .Cast<Match>()
@@ -38,10 +50,7 @@ public static class StringHumanizeExtensions
                     : value.ToLower();
             }));
 
-        if (result
-                .Replace(" ", "")
-                .All(char.IsUpper) &&
-            result.Contains(" "))
+        if (result.All(c => c == ' ' || char.IsUpper(c)) && result.Contains(' '))
         {
             result = result.ToLower();
         }
@@ -52,9 +61,32 @@ public static class StringHumanizeExtensions
     }
 
     /// <summary>
-    /// Humanizes the input string; e.g. Underscored_input_String_is_turned_INTO_sentence -> 'Underscored input String is turned INTO sentence'
+    /// Transforms a string into a human-readable format by intelligently handling PascalCase, camelCase,
+    /// underscored_strings, and dash-separated-strings, converting them into space-separated text with
+    /// appropriate capitalization.
     /// </summary>
-    /// <param name="input">The string to be humanized</param>
+    /// <param name="input">The string to be humanized. Must not be null.</param>
+    /// <returns>
+    /// A humanized version of the input string with spaces inserted between words and appropriate
+    /// capitalization. Preserves all-uppercase acronyms unchanged.
+    /// </returns>
+    /// <remarks>
+    /// The method applies several rules in order:
+    /// - If the entire input is uppercase (an acronym), it returns unchanged
+    /// - Handles freestanding underscores/dashes (e.g., "some _ string")
+    /// - Splits on underscores and dashes
+    /// - Breaks up PascalCase and camelCase text
+    /// The first letter of the result is always capitalized.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// "PascalCaseInputString".Humanize() => "Pascal case input string"
+    /// "Underscored_input_String_is_turned_INTO_sentence".Humanize() => "Underscored input String is turned INTO sentence"
+    /// "dash-separated-string".Humanize() => "Dash separated string"
+    /// "HTML".Humanize() => "HTML"
+    /// "camelCaseText".Humanize() => "Camel case text"
+    /// </code>
+    /// </example>
     public static string Humanize(this string input)
     {
         // if input is all capitals (e.g. an acronym) then return it without change
@@ -65,12 +97,12 @@ public static class StringHumanizeExtensions
 
         // if input contains a dash or underscore which precedes or follows a space (or both, e.g. freestanding)
         // remove the dash/underscore and run it through FromPascalCase
-        if (FreestandingSpacingCharRegex.IsMatch(input))
+        if (FreestandingSpacingCharRegex().IsMatch(input))
         {
             return FromPascalCase(FromUnderscoreDashSeparatedWords(input));
         }
 
-        if (input.Contains("_") || input.Contains("-"))
+        if (input.IndexOfAny(['_', '-']) >= 0)
         {
             return FromUnderscoreDashSeparatedWords(input);
         }
@@ -79,10 +111,23 @@ public static class StringHumanizeExtensions
     }
 
     /// <summary>
-    /// Humanized the input string based on the provided casing
+    /// Transforms a string into a human-readable format and applies the specified letter casing.
     /// </summary>
-    /// <param name="input">The string to be humanized</param>
-    /// <param name="casing">The desired casing for the output</param>
+    /// <param name="input">The string to be humanized. Must not be null.</param>
+    /// <param name="casing">The desired letter casing to apply to the humanized result.</param>
+    /// <returns>
+    /// A humanized version of the input string with the specified casing applied.
+    /// </returns>
+    /// <remarks>
+    /// This is a convenience method that combines <see cref="Humanize(string)"/> with <see cref="CasingExtensions.ApplyCase"/>.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// "PascalCaseInputString".Humanize(LetterCasing.AllCaps) => "PASCAL CASE INPUT STRING"
+    /// "PascalCaseInputString".Humanize(LetterCasing.LowerCase) => "pascal case input string"
+    /// "PascalCaseInputString".Humanize(LetterCasing.Title) => "Pascal Case Input String"
+    /// </code>
+    /// </example>
     public static string Humanize(this string input, LetterCasing casing) =>
         input
             .Humanize()

@@ -1,14 +1,21 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
-using Humanizer;
-
 namespace Humanizer;
 
-internal class EnglishWordsToNumberConverter : GenderlessWordsToNumberConverter
+internal partial class EnglishWordsToNumberConverter : GenderlessWordsToNumberConverter
 {
-    private static readonly Dictionary<string, int> NumbersMap = new()
+    private const string OrdinalSuffixPattern = @"\b(\d+)(st|nd|rd|th)\b";
+
+#if NET7_0_OR_GREATER
+    [GeneratedRegex(OrdinalSuffixPattern)]
+    private static partial Regex OrdinalSuffixRegexGenerated();
+    
+    private static Regex OrdinalSuffixRegex() => OrdinalSuffixRegexGenerated();
+#else
+    private static readonly Regex OrdinalSuffixRegexField = new(OrdinalSuffixPattern, RegexOptions.Compiled);
+
+    private static Regex OrdinalSuffixRegex() => OrdinalSuffixRegexField;
+#endif
+
+    private static readonly FrozenDictionary<string, int> NumbersMap = new Dictionary<string, int>
     {
         {"zero",0}, {"one",1}, {"two",2}, {"three",3}, {"four",4}, {"five",5},
         {"six",6}, {"seven",7}, {"eight",8}, {"nine",9}, {"ten",10},
@@ -18,9 +25,9 @@ internal class EnglishWordsToNumberConverter : GenderlessWordsToNumberConverter
         {"fifty", 50}, {"sixty", 60}, {"seventy", 70}, {"eighty", 80},
         {"ninety", 90}, {"hundred", 100}, {"thousand", 1000},
         {"million", 1_000_000}, {"billion", 1_000_000_000}
-    };
+    }.ToFrozenDictionary();
 
-    private static readonly Dictionary<string, int> OrdinalsMap = new()
+    private static readonly FrozenDictionary<string, int> OrdinalsMap = new Dictionary<string, int>
     {
         {"first",1}, {"second",2}, {"third",3}, {"fourth",4}, {"fifth",5},
         {"sixth",6}, {"seventh",7}, {"eighth",8}, {"ninth",9}, {"tenth",10},
@@ -29,12 +36,14 @@ internal class EnglishWordsToNumberConverter : GenderlessWordsToNumberConverter
         {"nineteenth",19}, {"twentieth",20}, {"thirtieth",30},
         {"fortieth",40}, {"fiftieth",50}, {"sixtieth",60}, {"seventieth",70},
         {"eightieth",80}, {"ninetieth",90}, {"hundredth",100}, {"thousandth",1000}
-    };
+    }.ToFrozenDictionary();
 
     public override int Convert(string words)
     {
         if (!TryConvert(words, out var result, out var unrecognizedword))
+        {
             throw new ArgumentException($"Unrecognized number word: {unrecognizedword}");
+        }
 
         return result;
     }
@@ -44,7 +53,9 @@ internal class EnglishWordsToNumberConverter : GenderlessWordsToNumberConverter
     public override bool TryConvert(string words, out int parsedValue, out string? unrecognizedWord)
     {
         if (string.IsNullOrWhiteSpace(words))
+        {
             throw new ArgumentException("Input words cannot be empty.");
+        }
 
         unrecognizedWord = null;
 
@@ -55,10 +66,12 @@ internal class EnglishWordsToNumberConverter : GenderlessWordsToNumberConverter
 
         var isNegative = words.StartsWith("minus ") || words.StartsWith("negative ");
         if (isNegative)
+        {
             words = words.Replace("minus ", "").Replace("negative ", "").Trim();
+        }
 
         // Remove ordinal suffixes (st, nd, rd, th)
-        words = Regex.Replace(words, @"\b(\d+)(st|nd|rd|th)\b", "$1");
+        words = OrdinalSuffixRegex().Replace(words, "$1");
         words = words.Replace("-", " ");
 
         if (int.TryParse(words, out var numericValue))
@@ -83,7 +96,7 @@ internal class EnglishWordsToNumberConverter : GenderlessWordsToNumberConverter
         return false;
     }
 
-    private bool TryConvertWordsToNumber(string words, out int result, out string? unrecognizedWord)
+    private static bool TryConvertWordsToNumber(string words, out int result, out string? unrecognizedWord)
     {
         var wordsArray = words.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         result = 0;
@@ -107,19 +120,24 @@ internal class EnglishWordsToNumberConverter : GenderlessWordsToNumberConverter
             }
 
             if (value == 100)
+            {
                 current = (current == 0 ? 1 : current) * 100;
-
+            }
             else if (value >= 1000)
             {
                 result += (current == 0 ? 1 : current) * value;
                 current = 0;
             }
             else
+            {
                 current += value;
+            }
         }
 
         if (!hasOrdinal)
+        {
             result += current;
+        }
 
         return true;
     }

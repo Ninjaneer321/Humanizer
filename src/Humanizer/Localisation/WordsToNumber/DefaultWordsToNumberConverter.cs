@@ -1,12 +1,8 @@
-using System.Globalization;
-
 namespace Humanizer;
 
-internal class DefaultWordsToNumberConverter : GenderlessWordsToNumberConverter
+internal class DefaultWordsToNumberConverter(CultureInfo culture) : GenderlessWordsToNumberConverter
 {
-    private readonly CultureInfo cultureInfo;
-
-    public DefaultWordsToNumberConverter(CultureInfo culture) => cultureInfo = culture;
+    private readonly CultureInfo cultureInfo = culture;
 
     public override int Convert(string words)
     {

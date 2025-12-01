@@ -5,7 +5,7 @@ namespace Humanizer;
 /// Vocabularies.Default contains an extensive list of rules for US English.
 /// At this time, multiple vocabularies and removing existing rules are not supported.
 /// </summary>
-public class Vocabulary
+public partial class Vocabulary
 {
     internal Vocabulary()
     {
@@ -14,7 +14,19 @@ public class Vocabulary
     readonly List<Rule> plurals = [];
     readonly List<Rule> singulars = [];
     readonly HashSet<string> uncountables = new(StringComparer.CurrentCultureIgnoreCase);
-    readonly Regex letterS = new("^([sS])[sS]*$");
+
+    private const string LetterSPattern = "^([sS])[sS]*$";
+
+#if NET7_0_OR_GREATER
+    [GeneratedRegex(LetterSPattern)]
+    private static partial Regex LetterSRegexGenerated();
+    
+    private static Regex LetterSRegex() => LetterSRegexGenerated();
+#else
+    private static readonly Regex LetterSRegexField = new(LetterSPattern, RegexOptions.Compiled);
+
+    private static Regex LetterSRegex() => LetterSRegexField;
+#endif
 
     /// <summary>
     /// Adds a word to the vocabulary which cannot easily be pluralized/singularized by RegEx, e.g. "person" and "people".
@@ -26,8 +38,8 @@ public class Vocabulary
     {
         if (matchEnding)
         {
-            var singularSubstring = singular.Substring(1);
-            var pluralSubString = plural.Substring(1);
+            var singularSubstring = singular[1..];
+            var pluralSubString = plural[1..];
             AddPlural($"({singular[0]}){singularSubstring}$", $"$1{pluralSubString}");
             AddSingular($"({plural[0]}){pluralSubString}$", $"$1{singularSubstring}");
         }
@@ -190,9 +202,9 @@ public class Vocabulary
     /// <summary>
     /// If the word is the letter s, singular or plural, return the letter s singular
     /// </summary>
-    string? LetterS(string word)
+    static string? LetterS(string word)
     {
-        var s = letterS.Match(word);
+        var s = LetterSRegex().Match(word);
         return s.Groups.Count > 1 ? s.Groups[1].Value : null;
     }
 

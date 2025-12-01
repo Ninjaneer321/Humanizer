@@ -1,4 +1,4 @@
-﻿//The Inflector class was cloned from Inflector (https://github.com/srkirkland/Inflector)
+//The Inflector class was cloned from Inflector (https://github.com/srkirkland/Inflector)
 
 //The MIT License (MIT)
 
@@ -25,7 +25,7 @@ using System.Collections;
 
 public class InflectorTests
 {
-    public readonly IList<object[]> PluralTestData = new List<object[]>();
+    public readonly IList<object[]> PluralTestData = [];
 
     [Theory]
     [ClassData(typeof(PluralTestSource))]
@@ -81,6 +81,15 @@ public class InflectorTests
     [InlineData("some title: The_beginning", "Some Title: The Beginning")]
     public void Titleize(string input, string expectedOutput) =>
         Assert.Equal(expectedOutput, input.Titleize());
+
+    // Issue #385: Titleize should preserve input with no recognized letters
+    [Theory]
+    [InlineData("Майк", "Майк")]
+    [InlineData("@@", "@@")]
+    [InlineData("?", "?")]
+    [InlineData("123", "123")]
+    public void TitleizeShouldPreserveUnrecognizedCharacters(string input, string expected) =>
+        Assert.Equal(expected, input.Titleize());
 
     [InlineData("some_title", "some-title")]
     [InlineData("some-title", "some-title")]

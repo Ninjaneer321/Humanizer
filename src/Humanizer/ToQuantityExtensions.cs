@@ -73,10 +73,13 @@ public static class ToQuantityExtensions
 
         if (showQuantityAs == ShowQuantityAs.Numeric)
         {
-            return string.Format(formatProvider, "{0} {1}", quantity.ToString(format, formatProvider), transformedInput);
+            var quantityStr = quantity.ToString(format, formatProvider);
+            return formatProvider != null
+                ? string.Format(formatProvider, "{0} {1}", quantityStr, transformedInput)
+                : ConcatWithSpace(quantityStr, transformedInput);
         }
 
-        return $"{quantity.ToWords()} {transformedInput}";
+        return ConcatWithSpace(quantity.ToWords(), transformedInput);
     }
 
     /// <summary>
@@ -100,7 +103,10 @@ public static class ToQuantityExtensions
             ? input.Singularize(inputIsKnownToBePlural: false)
             : input.Pluralize(inputIsKnownToBeSingular: false);
 
-        return string.Format(formatProvider, "{0} {1}", quantity.ToString(format, formatProvider), transformedInput);
+        var quantityStr = quantity.ToString(format, formatProvider);
+        return formatProvider != null
+            ? string.Format(formatProvider, "{0} {1}", quantityStr, transformedInput)
+            : ConcatWithSpace(quantityStr, transformedInput);
     }
 
     /// <summary>
@@ -113,4 +119,18 @@ public static class ToQuantityExtensions
     /// </example>
     public static string ToQuantity(this string input, double quantity) =>
         ToQuantity(input, quantity, null, null);
+
+    static string ConcatWithSpace(string left, string right)
+    {
+#if NET6_0_OR_GREATER
+        return string.Create(left.Length + 1 + right.Length, (left, right), (span, state) =>
+        {
+            state.left.CopyTo(span);
+            span[state.left.Length] = ' ';
+            state.right.CopyTo(span[(state.left.Length + 1)..]);
+        });
+#else
+        return string.Concat(left, " ", right);
+#endif
+    }
 }

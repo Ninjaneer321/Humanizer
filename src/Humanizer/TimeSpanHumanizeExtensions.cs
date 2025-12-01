@@ -54,10 +54,18 @@ public static class TimeSpanHumanizeExtensions
         var timeSpanExpression = timeSpan.Humanize(culture: culture, maxUnit: maxUnit, toWords: toWords);
 
         var cultureFormatter = Configurator.GetFormatter(culture);
-        return string.Format(cultureFormatter.TimeSpanHumanize_Age(), timeSpanExpression);
+        var ageFormat = cultureFormatter.TimeSpanHumanize_Age();
+        
+        // Fast path: avoid string.Format for common "{0} old" pattern
+        if (ageFormat == "{0} old")
+        {
+            return string.Concat(timeSpanExpression, " old");
+        }
+        
+        return string.Format(ageFormat, timeSpanExpression);
     }
 
-    static IEnumerable<string?> CreateTheTimePartsWithUpperAndLowerLimits(TimeSpan timespan, CultureInfo? culture, TimeUnit maxUnit, TimeUnit minUnit, bool toWords = false)
+    static List<string?> CreateTheTimePartsWithUpperAndLowerLimits(TimeSpan timespan, CultureInfo? culture, TimeUnit maxUnit, TimeUnit minUnit, bool toWords = false)
     {
         var cultureFormatter = Configurator.GetFormatter(culture);
         var firstValueFound = false;
@@ -117,15 +125,15 @@ public static class TimeSpanHumanizeExtensions
     {
         if (isTimeUnitToGetTheMaximumTimeUnit)
         {
-            return (int) (timespan.Days / DaysInAMonth);
+            return (int)(timespan.Days / DaysInAMonth);
         }
 
         var remainingDays = timespan.Days % DaysInAYear;
-        return (int) (remainingDays / DaysInAMonth);
+        return (int)(remainingDays / DaysInAMonth);
     }
 
     static int GetSpecialCaseYearAsInteger(TimeSpan timespan) =>
-        (int) (timespan.Days / DaysInAYear);
+        (int)(timespan.Days / DaysInAYear);
 
     static int GetSpecialCaseWeeksAsInteger(TimeSpan timespan, bool isTimeUnitToGetTheMaximumTimeUnit)
     {
@@ -150,7 +158,7 @@ public static class TimeSpanHumanizeExtensions
             return remainingDays;
         }
 
-        return (int) (timespan.Days % DaysInAMonth);
+        return (int)(timespan.Days % DaysInAMonth);
     }
 
     static int GetNormalCaseTimeAsInteger(int timeNumberOfUnits, double totalTimeNumberOfUnits, bool isTimeUnitToGetTheMaximumTimeUnit)
@@ -159,7 +167,7 @@ public static class TimeSpanHumanizeExtensions
         {
             try
             {
-                return (int) totalTimeNumberOfUnits;
+                return (int)totalTimeNumberOfUnits;
             }
             catch
             {
@@ -183,7 +191,7 @@ public static class TimeSpanHumanizeExtensions
     static bool IsContainingOnlyNullValue(IEnumerable<string?> timeParts) =>
         !timeParts.Any(x => x != null);
 
-    static IEnumerable<string?> SetPrecisionOfTimeSpan(IEnumerable<string?> timeParts, int precision, bool countEmptyUnits)
+    static List<string?> SetPrecisionOfTimeSpan(IEnumerable<string?> timeParts, int precision, bool countEmptyUnits)
     {
         if (!countEmptyUnits)
         {
@@ -196,7 +204,7 @@ public static class TimeSpanHumanizeExtensions
             timeParts = timeParts.Where(x => x != null);
         }
 
-        return timeParts;
+        return [.. timeParts];
     }
 
     static string ConcatenateTimeSpanParts(IEnumerable<string?> timeSpanParts, CultureInfo? culture, string? collectionSeparator)

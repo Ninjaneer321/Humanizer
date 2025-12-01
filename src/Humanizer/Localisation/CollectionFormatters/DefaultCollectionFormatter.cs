@@ -1,11 +1,8 @@
 ﻿namespace Humanizer;
 
-class DefaultCollectionFormatter : ICollectionFormatter
+class DefaultCollectionFormatter(string defaultSeparator) : ICollectionFormatter
 {
-    protected string DefaultSeparator = "";
-
-    public DefaultCollectionFormatter(string defaultSeparator) =>
-        DefaultSeparator = defaultSeparator;
+    protected string DefaultSeparator = defaultSeparator;
 
     public virtual string Humanize<T>(IEnumerable<T> collection) =>
         Humanize(collection, o => o?.ToString(), DefaultSeparator);
@@ -21,15 +18,9 @@ class DefaultCollectionFormatter : ICollectionFormatter
 
     public virtual string Humanize<T>(IEnumerable<T> collection, Func<T, string?> objectFormatter, string separator)
     {
-        if (collection == null)
-        {
-            throw new ArgumentNullException(nameof(collection));
-        }
+        ArgumentNullException.ThrowIfNull(collection);
 
-        if (objectFormatter == null)
-        {
-            throw new ArgumentNullException(nameof(objectFormatter));
-        }
+        ArgumentNullException.ThrowIfNull(objectFormatter);
 
         return HumanizeDisplayStrings(
             collection.Select(objectFormatter),
@@ -38,15 +29,9 @@ class DefaultCollectionFormatter : ICollectionFormatter
 
     public string Humanize<T>(IEnumerable<T> collection, Func<T, object?> objectFormatter, string separator)
     {
-        if (collection == null)
-        {
-            throw new ArgumentNullException(nameof(collection));
-        }
+        ArgumentNullException.ThrowIfNull(collection);
 
-        if (objectFormatter == null)
-        {
-            throw new ArgumentNullException(nameof(objectFormatter));
-        }
+        ArgumentNullException.ThrowIfNull(objectFormatter);
 
         return HumanizeDisplayStrings(
             collection
@@ -57,6 +42,7 @@ class DefaultCollectionFormatter : ICollectionFormatter
 
     string HumanizeDisplayStrings(IEnumerable<string?> strings, string separator)
     {
+        // Try to avoid ToArray for small known collections
         var itemsArray = strings
             .Select(item => item == null ? string.Empty : item.Trim())
             .Where(item => !string.IsNullOrWhiteSpace(item))
@@ -74,7 +60,19 @@ class DefaultCollectionFormatter : ICollectionFormatter
             return itemsArray[0];
         }
 
-        return string.Format(GetConjunctionFormatString(count),
+        var conjunctionFormat = GetConjunctionFormatString(count);
+        if (conjunctionFormat == "{0} {1} {2}")
+        {
+            // Fast path: avoid string.Format for default format
+            return string.Concat(
+                string.Join(", ", itemsArray, 0, itemsArray.Length - 1),
+                " ",
+                separator,
+                " ",
+                itemsArray[^1]);
+        }
+
+        return string.Format(conjunctionFormat,
             string.Join(", ", itemsArray, 0, itemsArray.Length - 1),
             separator,
             itemsArray[^1]);

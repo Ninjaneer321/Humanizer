@@ -6,7 +6,7 @@ class AzerbaijaniNumberToWordsConverter :
     static readonly string[] UnitsMap = ["sıfır", "bir", "iki", "üç", "dörd", "beş", "altı", "yeddi", "səkkiz", "doqquz"];
     static readonly string[] TensMap = ["sıfır", "on", "iyirmi", "otuz", "qırx", "əlli", "altmış", "yetmiş", "səksən", "doxsan"];
 
-    static readonly Dictionary<char, string> OrdinalSuffix = new()
+    static readonly FrozenDictionary<char, string> OrdinalSuffix = new Dictionary<char, string>
     {
         {
             'ı', "ıncı"
@@ -35,7 +35,7 @@ class AzerbaijaniNumberToWordsConverter :
         {
             'ə', "inci"
         },
-    };
+    }.ToFrozenDictionary();
 
     public override string Convert(long input)
     {
@@ -44,7 +44,7 @@ class AzerbaijaniNumberToWordsConverter :
             throw new NotImplementedException();
         }
 
-        var number = (int) input;
+        var number = (int)input;
         if (number == 0)
         {
             return UnitsMap[0];
@@ -121,7 +121,7 @@ class AzerbaijaniNumberToWordsConverter :
 
         if (suffixFoundOnLastVowel)
         {
-            word = word.Substring(0, word.Length - 1);
+            word = word[..^1];
         }
 
         return $"{word}{wordSuffix}";

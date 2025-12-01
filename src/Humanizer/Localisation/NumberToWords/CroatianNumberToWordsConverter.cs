@@ -89,32 +89,22 @@ class CroatianNumberToWordsConverter(CultureInfo culture)
                     part = $"{Convert(quadrillions)} bilijarde";
                     break;
                 default:
-                {
-                    if (quadrillions % 100 > 4 && quadrillions % 100 < 21)
                     {
-                        part = $"{Convert(quadrillions)} bilijardi";
-                        break;
-                    }
-
-                    switch (quadrillions % 10)
-                    {
-                        case 1:
-                            part = $"{Convert(quadrillions - 1)} jedna bilijarda";
-                            break;
-                        case 2:
-                            part = $"{Convert(quadrillions - 2)} dvije bilijarde";
-                            break;
-                        case 3:
-                        case 4:
-                            part = $"{Convert(quadrillions)} bilijarde";
-                            break;
-                        default:
+                        if (quadrillions % 100 is > 4 and < 21)
+                        {
                             part = $"{Convert(quadrillions)} bilijardi";
                             break;
-                    }
+                        }
 
-                    break;
-                }
+                        part = (quadrillions % 10) switch
+                        {
+                            1 => $"{Convert(quadrillions - 1)} jedna bilijarda",
+                            2 => $"{Convert(quadrillions - 2)} dvije bilijarde",
+                            3 or 4 => $"{Convert(quadrillions)} bilijarde",
+                            _ => $"{Convert(quadrillions)} bilijardi",
+                        };
+                        break;
+                    }
             }
 
             parts.Add(part);
@@ -136,16 +126,16 @@ class CroatianNumberToWordsConverter(CultureInfo culture)
                     part = "bilijun";
                     break;
                 default:
-                {
-                    if (trillions % 100 == 11 || trillions % 10 != 1)
                     {
-                        part = $"{Convert(trillions)} bilijuna";
+                        if (trillions % 100 == 11 || trillions % 10 != 1)
+                        {
+                            part = $"{Convert(trillions)} bilijuna";
+                            break;
+                        }
+
+                        part = $"{Convert(trillions)} bilijun";
                         break;
                     }
-
-                    part = $"{Convert(trillions)} bilijun";
-                    break;
-                }
             }
 
             parts.Add(part);
@@ -174,32 +164,22 @@ class CroatianNumberToWordsConverter(CultureInfo culture)
                     part = $"{Convert(billions)} milijarde";
                     break;
                 default:
-                {
-                    if (billions % 100 > 4 && billions % 100 < 21)
                     {
-                        part = $"{Convert(billions)} milijardi";
-                        break;
-                    }
-
-                    switch (billions % 10)
-                    {
-                        case 1:
-                            part = $"{Convert(billions - 1)} jedna milijarda";
-                            break;
-                        case 2:
-                            part = $"{Convert(billions - 2)} dvije milijarde";
-                            break;
-                        case 3:
-                        case 4:
-                            part = $"{Convert(billions)} milijarde";
-                            break;
-                        default:
+                        if (billions % 100 is > 4 and < 21)
+                        {
                             part = $"{Convert(billions)} milijardi";
                             break;
-                    }
+                        }
 
-                    break;
-                }
+                        part = (billions % 10) switch
+                        {
+                            1 => $"{Convert(billions - 1)} jedna milijarda",
+                            2 => $"{Convert(billions - 2)} dvije milijarde",
+                            3 or 4 => $"{Convert(billions)} milijarde",
+                            _ => $"{Convert(billions)} milijardi",
+                        };
+                        break;
+                    }
             }
 
             parts.Add(part);
@@ -221,16 +201,16 @@ class CroatianNumberToWordsConverter(CultureInfo culture)
                     part = "milijun";
                     break;
                 default:
-                {
-                    if (millions % 100 == 11 || millions % 10 != 1)
                     {
-                        part = $"{Convert(millions)} milijuna";
+                        if (millions % 100 == 11 || millions % 10 != 1)
+                        {
+                            part = $"{Convert(millions)} milijuna";
+                            break;
+                        }
+
+                        part = $"{Convert(millions)} milijun";
                         break;
                     }
-
-                    part = $"{Convert(millions)} milijun";
-                    break;
-                }
             }
 
             parts.Add(part);
@@ -259,32 +239,22 @@ class CroatianNumberToWordsConverter(CultureInfo culture)
                     part = $"{Convert(thousands)} tisuće";
                     break;
                 default:
-                {
-                    if (thousands % 100 > 4 && thousands % 100 < 21)
                     {
-                        part = $"{Convert(thousands)} tisuća";
-                        break;
-                    }
-
-                    switch (thousands % 10)
-                    {
-                        case 1:
-                            part = $"{Convert(thousands - 1)} jedna tisuća";
-                            break;
-                        case 2:
-                            part = $"{Convert(thousands - 2)} dvije tisuće";
-                            break;
-                        case 3:
-                        case 4:
-                            part = $"{Convert(thousands)} tisuće";
-                            break;
-                        default:
+                        if (thousands % 100 is > 4 and < 21)
+                        {
                             part = $"{Convert(thousands)} tisuća";
                             break;
-                    }
+                        }
 
-                    break;
-                }
+                        part = (thousands % 10) switch
+                        {
+                            1 => $"{Convert(thousands - 1)} jedna tisuća",
+                            2 => $"{Convert(thousands - 2)} dvije tisuće",
+                            3 or 4 => $"{Convert(thousands)} tisuće",
+                            _ => $"{Convert(thousands)} tisuća",
+                        };
+                        break;
+                    }
             }
 
             parts.Add(part);
@@ -323,17 +293,17 @@ class CroatianNumberToWordsConverter(CultureInfo culture)
                 parts.Add(UnitsMap[number]);
                 break;
             default:
-            {
-                parts.Add(TensMap[number / 10]);
-                var units = number % 10;
-
-                if (units > 0)
                 {
-                    parts.Add($" {UnitsMap[units]}");
-                }
+                    parts.Add(TensMap[number / 10]);
+                    var units = number % 10;
 
-                break;
-            }
+                    if (units > 0)
+                    {
+                        parts.Add($" {UnitsMap[units]}");
+                    }
+
+                    break;
+                }
         }
 
         return string.Concat(parts);
