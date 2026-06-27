@@ -2,13 +2,16 @@
 
 A Roslyn analyzer and code fix provider to help migrate code from Humanizer v2 to v3.
 
+`Humanizer` ships analyzer assets per Roslyn version so compatible analyzers are selected automatically by modern SDK/IDE hosts. The same package also carries the generated locale data, so there is no separate locale or analyzer package split to manage.
+
 ## What it does
 
 Humanizer v3 consolidates all sub-namespaces into the root `Humanizer` namespace. This analyzer:
 
 1. **Detects** old namespace usages (e.g., `Humanizer.Bytes`, `Humanizer.Localisation`)
 2. **Provides** automatic code fixes to update to `Humanizer`
-3. **Supports** batch fixing (Fix All) for entire projects or solutions
+3. **Provides** migration fixes for words-to-number API changes such as `ToNumber` now returning `long`
+4. **Supports** batch fixing (Fix All) for entire projects or solutions
 
 ## Deprecated Namespaces
 
@@ -92,10 +95,13 @@ dotnet build
 ### Testing
 
 ```bash
-cd src/Humanizer.Analyzers.Tests
+# from the repository root
+cd tests/Humanizer.Analyzers.Tests
 dotnet test
 ```
 
 ## Diagnostic ID
 
 - **HUMANIZER001**: Old Humanizer namespace usage
+
+The words-to-number migration fixes are offered on the relevant compiler diagnostics (`CS0029` and `CS0266`) when the failing code involves Humanizer's `ToNumber` or `Convert` APIs.

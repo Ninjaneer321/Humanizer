@@ -52,14 +52,15 @@ Humanizer meets all your .NET needs for manipulating and displaying strings, enu
 
 ## Advanced Topics
 
-- [Localization](localization.md) - Multi-language support
+- [Localization](localization.md) - Multi-language support, YAML locale data, and inheritance
 - [Custom Vocabularies](custom-vocabularies.md) - Add custom pluralization rules
 - [Extensibility](extensibility.md) - Implement custom transformers and truncators
 - [Configuration](configuration.md) - Customize Humanizer behavior
 
 ## Migration Guides
 
-- [Migrating to v3.0](migration-v3.md) - Breaking changes and new features
+- [Migrating from 2.14.1 to 3.0.8](migration-v3.md) - Comprehensive breaking changes, patch-line fixes, and known regressions
+- [Namespace migration details](v3-namespace-migration.md) - Namespace-only migration guidance and analyzer usage
 
 ## API Reference
 
