@@ -1,6 +1,21 @@
 locale: 'ku'
 
 surfaces:
+  inflection:
+    cardinalRule: 'One'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'ku grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'û'
@@ -198,6 +213,72 @@ surfaces:
         forms:
           default: 'تێرابایت'
         symbol: 'TB'
+      decimalKilobyte:
+        forms:
+          default: 'کیلۆبایت'
+          singular: 'کیلۆبایت'
+        symbol: 'kB'
+        template: '{unit}'
+      decimalMegabyte:
+        forms:
+          default: 'مێگابایت'
+          singular: 'مێگابایت'
+        symbol: 'MB'
+        template: '{unit}'
+      decimalGigabyte:
+        forms:
+          default: 'گیگابایت'
+          singular: 'گیگابایت'
+        symbol: 'GB'
+        template: '{unit}'
+      decimalTerabyte:
+        forms:
+          default: 'تێرابایت'
+          singular: 'تێرابایت'
+        symbol: 'TB'
+        template: '{unit}'
+      decimalPetabyte:
+        forms:
+          default: 'پێتابایت'
+          singular: 'پێتابایت'
+        symbol: 'PB'
+        template: '{unit}'
+      decimalExabyte:
+        forms:
+          default: 'ئێگزابایت'
+          singular: 'ئێگزابایت'
+        symbol: 'EB'
+        template: '{unit}'
+      binaryKibibyte:
+        forms:
+          default: 'کیبیبایت'
+          singular: 'کیبیبایت'
+        symbol: 'KiB'
+        template: '{unit}'
+      binaryMebibyte:
+        forms:
+          default: 'مێبیبایت'
+          singular: 'مێبیبایت'
+        symbol: 'MiB'
+        template: '{unit}'
+      binaryGibibyte:
+        forms:
+          default: 'گیبیبایت'
+          singular: 'گیبیبایت'
+        symbol: 'GiB'
+        template: '{unit}'
+      binaryTebibyte:
+        forms:
+          default: 'تێبیبایت'
+          singular: 'تێبیبایت'
+        symbol: 'TiB'
+        template: '{unit}'
+      binaryPebibyte:
+        forms:
+          default: 'پێبیبایت'
+          singular: 'پێبیبایت'
+        symbol: 'PiB'
+        template: '{unit}'
     timeUnits:
       millisecond:
         symbol: 'میلیچرکە'
@@ -293,6 +374,7 @@ surfaces:
           omitOneWhenSingular: true
 
     parse:
+      decimalMarker: '٫'
       engine: 'token-map'
       normalizationProfile: 'CollapseWhitespace'
       cardinalMap:

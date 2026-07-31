@@ -1,6 +1,21 @@
 locale: 'fr'
 
 surfaces:
+  inflection:
+    cardinalRule: 'French'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'fr grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'et'
@@ -245,6 +260,67 @@ surfaces:
         forms:
           default: 'téraoctet'
         symbol: 'To'
+      decimalKilobyte:
+        forms: 'kilooctet'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms: 'mégaoctet'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms: 'gigaoctet'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms: 'téraoctet'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms: 'pétaoctet'
+        symbol: 'PB'
+      decimalExabyte:
+        forms: 'exaoctet'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms: 'kibioctet'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms: 'mébioctet'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms: 'gibioctet'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms: 'tébioctet'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms: 'pébioctet'
+        symbol: 'PiB'
+      petabyte:
+        forms:
+          default: 'pétaoctet'
+        symbol: 'Po'
+      exabyte:
+        forms:
+          default: 'exaoctet'
+        symbol: 'Eo'
+      pebibyte:
+        forms:
+          default: 'pébioctet'
+        symbol: 'Pio'
+      kibibyte:
+        forms:
+          default: 'kibioctet'
+        symbol: 'Kio'
+      mebibyte:
+        forms:
+          default: 'mébioctet'
+        symbol: 'Mio'
+      gibibyte:
+        forms:
+          default: 'gibioctet'
+        symbol: 'Gio'
+      tebibyte:
+        forms:
+          default: 'tébioctet'
+        symbol: 'Tio'
     timeUnits:
       millisecond:
         symbol: 'ms'
@@ -289,8 +365,36 @@ surfaces:
         - 'soixante'
         - 'quatre-vingt'
         - 'quatre-vingt'
+      scales:
+        -
+          value: 1000000000000000000
+          singular: 'trillion'
+          plural: 'trillions'
+        -
+          value: 1000000000000000
+          singular: 'billiard'
+          plural: 'billiards'
+        -
+          value: 1000000000000
+          singular: 'billion'
+          plural: 'billions'
+        -
+          value: 1000000000
+          singular: 'milliard'
+          plural: 'milliards'
+        -
+          value: 1000000
+          singular: 'million'
+          plural: 'millions'
+        -
+          value: 1000
+          singular: 'mille'
+          plural: 'mille'
+          omitOne: true
+          pluralizeMultiplier: false
 
     parse:
+      decimalMarker: 'virgule'
       engine: 'vigesimal-compound'
       cardinalMap:
         'zéro': 0

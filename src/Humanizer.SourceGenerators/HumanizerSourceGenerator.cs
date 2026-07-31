@@ -5,6 +5,7 @@ namespace Humanizer.SourceGenerators;
 [Generator]
 public sealed partial class HumanizerSourceGenerator : IIncrementalGenerator
 {
+    /// <inheritdoc />
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var localeFiles = context.AdditionalTextsProvider
@@ -19,6 +20,11 @@ public sealed partial class HumanizerSourceGenerator : IIncrementalGenerator
             .Select(static (catalog, _) => LocalePhraseTableCatalogInput.Create(catalog));
 
         context.RegisterSourceOutput(localePhraseTables, static (productionContext, input) => input.Emit(productionContext));
+
+        var localeDurationCases = localeCatalog
+            .Select(static (catalog, _) => LocaleDurationCaseTableCatalogInput.Create(catalog));
+
+        context.RegisterSourceOutput(localeDurationCases, static (productionContext, input) => input.Emit(productionContext));
 
         var headingTables = localeCatalog
             .Select(static (catalog, _) => HeadingTableCatalogInput.Create(catalog));
@@ -35,10 +41,20 @@ public sealed partial class HumanizerSourceGenerator : IIncrementalGenerator
 
         context.RegisterSourceOutput(formatterProfiles, static (productionContext, input) => input.Emit(productionContext));
 
+        var inflectionProfiles = localeCatalog
+            .Select(static (catalog, _) => InflectionCatalogInput.Create(catalog));
+
+        context.RegisterSourceOutput(inflectionProfiles, static (productionContext, input) => input.Emit(productionContext));
+
         var numberToWordsProfiles = localeCatalog
             .Select(static (catalog, _) => NumberToWordsProfileCatalogInput.Create(catalog));
 
         context.RegisterSourceOutput(numberToWordsProfiles, static (productionContext, input) => input.Emit(productionContext));
+
+        var metricScaleWords = localeCatalog
+            .Select(static (catalog, _) => MetricScaleWordCatalogInput.Create(catalog));
+
+        context.RegisterSourceOutput(metricScaleWords, static (productionContext, input) => input.Emit(productionContext));
 
         var ordinalizerProfiles = localeCatalog
             .Select(static (catalog, _) => OrdinalizerProfileCatalogInput.Create(catalog));

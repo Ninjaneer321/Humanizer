@@ -34,6 +34,14 @@ public static class MetricNumeralExtensions
     static readonly double BigLimit = Math.Pow(10, Limit);
     static readonly double SmallLimit = Math.Pow(10, -Limit);
 
+    static bool ShouldKeepTrailingZeros(MetricNumeralFormats? formats, int? decimals) =>
+        decimals.HasValue && formats.HasValue && formats.Value.HasFlag(MetricNumeralFormats.KeepTrailingZeros);
+
+    static string FormatLongWithTrailingZeros(long input, int decimals, NumberFormatInfo nfi) =>
+        decimals > 0
+            ? input.ToString(nfi) + nfi.NumberDecimalSeparator + new string('0', decimals)
+            : input.ToString(nfi);
+
     /// <summary>
     /// Symbols is a list of every symbols for the Metric system.
     /// </summary>
@@ -137,7 +145,7 @@ public static class MetricNumeralExtensions
     /// </remarks>
     /// <param name="input">Number to convert to a Metric representation.</param>
     /// <param name="formats">A bitwise combination of <see cref="MetricNumeralFormats"/> enumeration values that format the metric representation.</param>
-    /// <param name="decimals">If not null it is the numbers of decimals to round the number to</param>
+    /// <param name="decimals">The maximum number of fractional digits to include. When <see cref="MetricNumeralFormats.KeepTrailingZeros"/> is used, exactly this many fractional digits are included. If null, all available precision is preserved and the flag has no effect.</param>
     /// <example>
     /// <code>
     /// 1000.ToMetric() => "1k"
@@ -193,7 +201,7 @@ public static class MetricNumeralExtensions
     /// </remarks>
     /// <param name="input">Number to convert to a Metric representation.</param>
     /// <param name="formats">A bitwise combination of <see cref="MetricNumeralFormats"/> enumeration values that format the metric representation.</param>
-    /// <param name="decimals">If not null it is the numbers of decimals to round the number to</param>
+    /// <param name="decimals">The maximum number of fractional digits to include. When <see cref="MetricNumeralFormats.KeepTrailingZeros"/> is used, exactly this many fractional digits are included. If null, all available precision is preserved and the flag has no effect.</param>
     /// <example>
     /// <code>
     /// 1000.ToMetric() => "1k"
@@ -204,8 +212,15 @@ public static class MetricNumeralExtensions
     /// <returns>A valid Metric representation</returns>
     public static string ToMetric(this long input, MetricNumeralFormats? formats = null, int? decimals = null)
     {
-        if (input.Equals(0) && (!decimals.HasValue || (decimals == 0)))
+        if (input.Equals(0))
         {
+            if (ShouldKeepTrailingZeros(formats, decimals))
+            {
+                var nfi = LocaleNumberFormattingOverrides.GetFormattingNumberFormat(CultureInfo.CurrentCulture);
+                var space = formats.GetValueOrDefault().HasFlag(MetricNumeralFormats.WithSpace) ? " " : string.Empty;
+                return FormatLongWithTrailingZeros(input, decimals.GetValueOrDefault(), nfi) + space;
+            }
+
             return input.ToString();
         }
 
@@ -221,7 +236,7 @@ public static class MetricNumeralExtensions
     /// </remarks>
     /// <param name="input">Number to convert to a Metric representation.</param>
     /// <param name="formats">A bitwise combination of <see cref="MetricNumeralFormats"/> enumeration values that format the metric representation.</param>
-    /// <param name="decimals">If not null it is the numbers of decimals to round the number to</param>
+    /// <param name="decimals">The maximum number of fractional digits to include. When <see cref="MetricNumeralFormats.KeepTrailingZeros"/> is used, exactly this many fractional digits are included. If null, all available precision is preserved and the flag has no effect.</param>
     /// <example>
     /// <code>
     /// 1000d.ToMetric() => "1k"
@@ -234,6 +249,13 @@ public static class MetricNumeralExtensions
     {
         if (input.Equals(0))
         {
+            if (ShouldKeepTrailingZeros(formats, decimals))
+            {
+                var nfi = LocaleNumberFormattingOverrides.GetFormattingNumberFormat(CultureInfo.CurrentCulture);
+                var space = formats.GetValueOrDefault().HasFlag(MetricNumeralFormats.WithSpace) ? " " : string.Empty;
+                return input.ToString($"F{decimals.GetValueOrDefault()}", nfi) + space;
+            }
+
             return input.ToString();
         }
 
@@ -333,8 +355,8 @@ public static class MetricNumeralExtensions
         }
 
         var nfi = LocaleNumberFormattingOverrides.GetFormattingNumberFormat(CultureInfo.CurrentCulture);
-        var representation = decimals > 0
-            ? $"{input.ToString(nfi)}{nfi.NumberDecimalSeparator}{new string('0', decimals.Value)}"
+        var representation = ShouldKeepTrailingZeros(formats, decimals)
+            ? FormatLongWithTrailingZeros(input, decimals.GetValueOrDefault(), nfi)
             : input.ToString(nfi);
         var space = (formats & MetricNumeralFormats.WithSpace) == MetricNumeralFormats.WithSpace ? " " : string.Empty;
         return representation + space;
@@ -373,43 +395,105 @@ public static class MetricNumeralExtensions
             fractionalPart = Math.Abs(input % divisor);
         }
 
-        if (decimals.HasValue)
-        {
-            for (var i = decimals.Value; i < exponent; i++)
-            {
-                var roundUp = (i + 1 == exponent);
+        var requestedDecimals = decimals;
+        var keepTrailingZeros = ShouldKeepTrailingZeros(formats, decimals);
 
-                fractionalPart = (fractionalPart + (roundUp ? 5 : 0)) / 10;
-            }
-        }
-        else
-        {
+        if (!decimals.HasValue)
             decimals = exponent;
-        }
 
-        var symbol = Math.Sign(scale) == 1
-            ? Symbols[0][scale - 1]
-            : Symbols[1][-scale - 1];
+        var fractionalPartCharacters = Array.Empty<char>();
+
+        if (decimals > 0)
+        {
+            fractionalPartCharacters = fractionalPart.ToString().PadLeft(exponent, '0').ToCharArray();
+
+            if (!decimals.HasValue || (decimals >= fractionalPartCharacters.Length))
+                decimals = fractionalPartCharacters.Length;
+            else if (fractionalPartCharacters[decimals.Value] >= '5')
+            {
+                var isExactlyAtMidpoint =
+                    (fractionalPartCharacters[decimals.Value] == '5') &&
+                    (fractionalPartCharacters.AsSpan().Slice(decimals.Value + 1).IndexOfAnyExcept('0') < 0);
+
+                bool shouldRoundUp;
+
+                if (!isExactlyAtMidpoint)
+                    shouldRoundUp = true;
+                else
+                {
+                    var precedingDigit = fractionalPartCharacters[decimals.Value - 1] - '0';
+
+                    var precedingDigitIsOdd = (precedingDigit & 1) != 0;
+
+                    // Banker's rounding: 3.5 => 4, 4.5 => 4
+                    shouldRoundUp = precedingDigitIsOdd;
+                }
+
+                if (shouldRoundUp)
+                {
+                    // Apply rounding. Find a digit we can increment, carrying as needed.
+                    for (var i = decimals.Value - 1; i >= 0; i--)
+                    {
+                        if (fractionalPartCharacters[i] < '9')
+                        {
+                            fractionalPartCharacters[i]++;
+                            break;
+                        }
+
+                        fractionalPartCharacters[i] = '0'; // loop to carry
+                    }
+                }
+            }
+
+            while ((decimals > 0) && (fractionalPartCharacters[decimals.Value - 1] == '0'))
+                decimals--;
+        }
 
         var nfi = LocaleNumberFormattingOverrides.GetFormattingNumberFormat(CultureInfo.CurrentCulture);
 
         if (decimals == 0)
         {
+            var roundingPoint = divisor / 2;
+
+            if (divisor > 1)
+            {
+                if (fractionalPart > roundingPoint)
+                    number += Math.Sign(number);
+                else if (fractionalPart == roundingPoint)
+                {
+                    // Use banker's rounding for consistency with Math.Round used elsewhere on floats.
+                    number += Math.Sign(number % 2);
+                }
+
+                if (Math.Abs(number) == 1000)
+                {
+                    number /= 1000;
+                    scale++;
+                }
+            }
+
             var space = formats.HasValue && formats.Value.HasFlag(MetricNumeralFormats.WithSpace) ? " " : string.Empty;
-            return number.ToString(nfi) + space + GetUnitText(symbol, formats);
+            var representation = keepTrailingZeros
+                ? FormatLongWithTrailingZeros(number, requestedDecimals.GetValueOrDefault(), nfi)
+                : number.ToString(nfi);
+            var displayedNumber = decimal.TryParse(representation, NumberStyles.Float, nfi, out var parsedNumber)
+                ? parsedNumber
+                : number;
+            var unitText = GetUnitText(scale, formats, displayedNumber);
+            return representation + space + unitText;
         }
         else
         {
-            var decimalPlaces = Math.Min(decimals.Value, exponent);
-            var extraZeroes = (decimals.Value - decimalPlaces);
             var space = formats.HasValue && formats.Value.HasFlag(MetricNumeralFormats.WithSpace) ? " " : string.Empty;
-
-            return number.ToString(nfi)
-                 + nfi.NumberDecimalSeparator
-                 + fractionalPart.ToString("d" + decimalPlaces)
-                 + (extraZeroes <= 0 ? string.Empty : new string('0', extraZeroes))
-                 + space
-                 + GetUnitText(symbol, formats);
+            var representation = number.ToString(nfi)
+                                 + nfi.NumberDecimalSeparator
+                                 + new string(fractionalPartCharacters, 0, decimals.Value)
+                                 + (keepTrailingZeros && requestedDecimals > decimals ? new string('0', requestedDecimals.Value - decimals.Value) : string.Empty);
+            var displayedNumber = decimal.TryParse(representation, NumberStyles.Float, nfi, out var parsedNumber)
+                ? parsedNumber
+                : number;
+            var unitText = GetUnitText(scale, formats, displayedNumber);
+            return representation + space + unitText;
         }
     }
 
@@ -429,11 +513,17 @@ public static class MetricNumeralExtensions
             return BuildMetricRepresentation(input, exponent, formats, decimals);
         }
 
+        if (decimals.HasValue)
+        {
+            input = Math.Round(input, decimals.Value);
+
+            if (Math.Abs(input) >= 1000)
+                return BuildMetricRepresentation(input, 1, formats, decimals);
+        }
+
         var nfi = LocaleNumberFormattingOverrides.GetFormattingNumberFormat(CultureInfo.CurrentCulture);
-        var representation = decimals.HasValue
-            ? Math
-                .Round(input, decimals.Value)
-                .ToString(nfi)
+        var representation = ShouldKeepTrailingZeros(formats, decimals)
+            ? input.ToString($"F{decimals.GetValueOrDefault()}", nfi)
             : input.ToString(nfi);
         var space = (formats & MetricNumeralFormats.WithSpace) == MetricNumeralFormats.WithSpace ? " " : string.Empty;
         return representation + space;
@@ -461,13 +551,28 @@ public static class MetricNumeralExtensions
             exponent += 1;
         }
 
-        var symbol = Math.Sign(exponent) == 1
-            ? Symbols[0][exponent - 1]
-            : Symbols[1][-exponent - 1];
         var nfi = LocaleNumberFormattingOverrides.GetFormattingNumberFormat(CultureInfo.CurrentCulture);
+        var representation = ShouldKeepTrailingZeros(formats, decimals)
+            ? number.ToString($"F{decimals.GetValueOrDefault()}", nfi)
+            : number.ToString("G15", nfi);
+        var displayedNumber = decimal.TryParse(representation, NumberStyles.Float, nfi, out var parsedNumber)
+            ? parsedNumber
+            : (decimal)number;
+        var unitText = GetUnitText(exponent, formats, displayedNumber);
         var space = formats.HasValue && formats.Value.HasFlag(MetricNumeralFormats.WithSpace) ? " " : string.Empty;
-        return number.ToString("G15", nfi) + space + GetUnitText(symbol, formats);
+        return representation + space + unitText;
     }
+
+    /// <summary>
+    /// Get the unit for a power-of-1000 scale.
+    /// </summary>
+    static string GetUnitText(int scale, MetricNumeralFormats? formats, decimal displayedNumber) =>
+        Math.Sign(scale) switch
+        {
+            +1 => GetUnitText(Symbols[0][scale - 1], formats, displayedNumber),
+            -1 => GetUnitText(Symbols[1][-scale - 1], formats, displayedNumber),
+            _ => string.Empty
+        };
 
     /// <summary>
     /// Get the unit from a symbol of from the symbol's name.
@@ -475,7 +580,7 @@ public static class MetricNumeralExtensions
     /// <param name="symbol">The symbol linked to the unit</param>
     /// <param name="formats">A bitwise combination of <see cref="MetricNumeralFormats"/> enumeration values that format the metric representation.</param>
     /// <returns>A symbol, a symbol's name, a symbol's short scale word or a symbol's long scale word</returns>
-    static string GetUnitText(char symbol, MetricNumeralFormats? formats)
+    static string GetUnitText(char symbol, MetricNumeralFormats? formats, decimal displayedNumber)
     {
         if (formats.HasValue)
         {
@@ -493,6 +598,13 @@ public static class MetricNumeralExtensions
             if (formatValue.HasFlag(MetricNumeralFormats.UseLongScaleWord))
             {
                 return UnitPrefixes[symbol].LongScaleWord;
+            }
+
+            if (formatValue.HasFlag(MetricNumeralFormats.UseScaleWord))
+            {
+                return LocalizedMetricScaleWordCatalog.TryResolve(CultureInfo.CurrentUICulture, symbol, displayedNumber, out var scaleWord)
+                    ? scaleWord
+                    : symbol.ToString();
             }
         }
 

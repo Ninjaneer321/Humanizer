@@ -1,6 +1,21 @@
 locale: 'id'
 
 surfaces:
+  inflection:
+    cardinalRule: 'Other'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'id grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'dan'
@@ -202,6 +217,50 @@ surfaces:
         forms:
           default: 'terabyte'
         symbol: 'TB'
+      decimalKilobyte:
+        forms:
+          default: 'kilobyte'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms:
+          default: 'megabyte'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms:
+          default: 'gigabyte'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms:
+          default: 'terabyte'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms:
+          default: 'petabyte'
+        symbol: 'PB'
+      decimalExabyte:
+        forms:
+          default: 'exabyte'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms:
+          default: 'kibibyte'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms:
+          default: 'mebibyte'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms:
+          default: 'gibibyte'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms:
+          default: 'tebibyte'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms:
+          default: 'pebibyte'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'milidetik'
@@ -280,6 +339,7 @@ surfaces:
           oneWord: 'seribu'
 
     parse:
+      decimalMarker: 'titik'
       engine: 'contracted-scale'
       minusWord: 'minus'
       cardinalMap:

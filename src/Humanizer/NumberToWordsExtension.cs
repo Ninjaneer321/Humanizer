@@ -7,11 +7,21 @@ namespace Humanizer;
 /// </summary>
 public static class NumberToWordsExtension
 {
+    static readonly ConjunctionalScale[] CroreBasedIndianScales =
+    [
+        new(100_000_000_000_000_000, "shankh", "shankh"),
+        new(1_000_000_000_000_000, "padma", "padma"),
+        new(1_000_000_000_000, "lakh crore", "lakh crore"),
+        new(10_000_000, "crore", "crore"),
+        new(100_000, "lakh", "lakh"),
+        new(1000, "thousand", "thousand")
+    ];
+
     /// <summary>
     /// 1.ToOrdinalWords() -> "first"
     /// </summary>
     /// <param name="number">Number to be turned to ordinal words</param>
-    /// <param name="culture">The culture to use. If <c>null</c>, the current UI culture is used.</param>
+    /// <param name="culture">The culture to use. If <c>null</c>, the current culture is used.</param>
     public static string ToOrdinalWords(this int number, CultureInfo? culture = null) =>
         number == 1 && TryGetNativeFirstOrdinalWord(culture, null) is { } firstOrdinalWord
             ? firstOrdinalWord
@@ -29,7 +39,7 @@ public static class NumberToWordsExtension
     /// </example>
     /// <param name="number">Number to be turned to ordinal words</param>
     /// <param name="wordForm">Form of the word, i.e. abbreviation</param>
-    /// <param name="culture">The culture to use. If <c>null</c>, the current UI culture is used.</param>
+    /// <param name="culture">The culture to use. If <c>null</c>, the current culture is used.</param>
     /// <returns>The number converted into ordinal words</returns>
     public static string ToOrdinalWords(this int number, WordForm wordForm, CultureInfo? culture = null) =>
         Configurator.GetNumberToWordsConverter(culture).ConvertToOrdinal(number, wordForm);
@@ -41,7 +51,7 @@ public static class NumberToWordsExtension
     /// </summary>
     /// <param name="number">Number to be turned to words</param>
     /// <param name="gender">The grammatical gender to use for output words</param>
-    /// <param name="culture">The culture to use. If <c>null</c>, the current UI culture is used.</param>
+    /// <param name="culture">The culture to use. If <c>null</c>, the current culture is used.</param>
     public static string ToOrdinalWords(this int number, GrammaticalGender gender, CultureInfo? culture = null) =>
         number == 1 && TryGetNativeFirstOrdinalWord(culture, gender) is { } firstOrdinalWord
             ? firstOrdinalWord
@@ -62,7 +72,7 @@ public static class NumberToWordsExtension
     /// <param name="number">Number to be turned to ordinal words</param>
     /// <param name="gender">The grammatical gender to use for output words</param>
     /// <param name="wordForm">Form of the word, i.e. abbreviation</param>
-    /// <param name="culture">The culture to use. If <c>null</c>, the current UI culture is used.</param>
+    /// <param name="culture">The culture to use. If <c>null</c>, the current culture is used.</param>
     /// <returns>The number converted into ordinal words</returns>
     public static string ToOrdinalWords(this int number, GrammaticalGender gender, WordForm wordForm, CultureInfo? culture = null) =>
         number == 1 && TryGetNativeFirstOrdinalWord(culture, gender) is { } firstOrdinalWord
@@ -73,7 +83,7 @@ public static class NumberToWordsExtension
     /// 1.ToTuple() -> "single"
     /// </summary>
     /// <param name="number">Number to be turned to tuple</param>
-    /// <param name="culture">The culture to use. If <c>null</c>, the current UI culture is used.</param>
+    /// <param name="culture">The culture to use. If <c>null</c>, the current culture is used.</param>
     public static string ToTuple(this int number, CultureInfo? culture = null) =>
         Configurator.GetNumberToWordsConverter(culture).ConvertToTuple(number);
 
@@ -81,10 +91,20 @@ public static class NumberToWordsExtension
     /// Converts the given value to localized cardinal words.
     /// </summary>
     /// <param name="number">The value to convert.</param>
-    /// <param name="culture">The culture to use. If <c>null</c>, the current UI culture is used.</param>
+    /// <param name="culture">The culture to use. If <c>null</c>, the current culture is used.</param>
     /// <returns>The localized cardinal words for <paramref name="number"/>.</returns>
     public static string ToWords(this int number, CultureInfo? culture = null) =>
         ((long)number).ToWords(culture);
+
+    /// <summary>
+    /// Converts the given value to Indian English cardinal words using the selected large-number vocabulary.
+    /// </summary>
+    /// <param name="number">The value to convert.</param>
+    /// <param name="scaleStyle">The Indian large-number vocabulary to use.</param>
+    /// <returns>The Indian English cardinal words for <paramref name="number"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="scaleStyle"/> is not a defined value.</exception>
+    public static string ToIndianWords(this int number, IndianScaleStyle scaleStyle = IndianScaleStyle.NamedScales) =>
+        ((long)number).ToIndianWords(scaleStyle);
 
     /// <summary>
     /// Converts the given value to localized cardinal words using both word form and grammatical gender.
@@ -98,7 +118,7 @@ public static class NumberToWordsExtension
     /// </example>
     /// <param name="number">Number to be turned to words</param>
     /// <param name="wordForm">Form of the word, i.e. abbreviation</param>
-    /// <param name="culture">The culture to use. If <c>null</c>, the current UI culture is used.</param>
+    /// <param name="culture">The culture to use. If <c>null</c>, the current culture is used.</param>
     /// <returns>The number converted to words</returns>
     public static string ToWords(this int number, WordForm wordForm, CultureInfo? culture = null) =>
         ((long)number).ToWords(wordForm, culture);
@@ -133,7 +153,7 @@ public static class NumberToWordsExtension
     /// </summary>
     /// <param name="number">The value to convert.</param>
     /// <param name="addAnd">Whether to include the culture's conjunction before the terminal group.</param>
-    /// <param name="culture">The culture to use. If <c>null</c>, the current UI culture is used.</param>
+    /// <param name="culture">The culture to use. If <c>null</c>, the current culture is used.</param>
     /// <returns>The localized cardinal words for <paramref name="number"/>.</returns>
     public static string ToWords(this int number, bool addAnd, CultureInfo? culture = null) =>
         ((long)number).ToWords(culture, addAnd);
@@ -152,7 +172,7 @@ public static class NumberToWordsExtension
     /// <param name="number">The value to convert.</param>
     /// <param name="addAnd">Whether to include the culture's conjunction before the terminal group.</param>
     /// <param name="wordForm">The requested word form.</param>
-    /// <param name="culture">The culture to use. If <c>null</c>, the current UI culture is used.</param>
+    /// <param name="culture">The culture to use. If <c>null</c>, the current culture is used.</param>
     /// <returns>The localized cardinal words for <paramref name="number"/>.</returns>
     public static string ToWords(this int number, bool addAnd, WordForm wordForm, CultureInfo? culture = null) =>
         ((long)number).ToWords(wordForm, culture, addAnd);
@@ -174,7 +194,7 @@ public static class NumberToWordsExtension
     /// </example>
     /// <param name="number">The value to convert.</param>
     /// <param name="gender">The grammatical gender to use when the locale supports gendered forms.</param>
-    /// <param name="culture">The culture to use. If <c>null</c>, the current UI culture is used.</param>
+    /// <param name="culture">The culture to use. If <c>null</c>, the current culture is used.</param>
     /// <returns>The localized cardinal words for <paramref name="number"/>.</returns>
     public static string ToWords(this int number, GrammaticalGender gender, CultureInfo? culture = null) =>
         ((long)number).ToWords(gender, culture);
@@ -193,7 +213,7 @@ public static class NumberToWordsExtension
     /// <param name="number">The value to convert.</param>
     /// <param name="wordForm">The requested word form.</param>
     /// <param name="gender">The grammatical gender to use when the locale supports gendered forms.</param>
-    /// <param name="culture">The culture to use. If <c>null</c>, the current UI culture is used.</param>
+    /// <param name="culture">The culture to use. If <c>null</c>, the current culture is used.</param>
     /// <returns>The localized cardinal words for <paramref name="number"/>.</returns>
     public static string ToWords(this int number, WordForm wordForm, GrammaticalGender gender, CultureInfo? culture = null) =>
         ((long)number).ToWords(wordForm, gender, culture);
@@ -202,11 +222,34 @@ public static class NumberToWordsExtension
     /// Converts the given value to localized cardinal words using the culture's default conjunction policy.
     /// </summary>
     /// <param name="number">The value to convert.</param>
-    /// <param name="culture">The culture to use. If <c>null</c>, the current UI culture is used.</param>
+    /// <param name="culture">The culture to use. If <c>null</c>, the current culture is used.</param>
     /// <param name="addAnd">Whether to include the culture's conjunction before the terminal group.</param>
     /// <returns>The localized cardinal words for <paramref name="number"/>.</returns>
     public static string ToWords(this long number, CultureInfo? culture = null, bool addAnd = true) =>
         Configurator.GetNumberToWordsConverter(culture).Convert(number, addAnd);
+
+    /// <summary>
+    /// Converts the given value to Indian English cardinal words using the selected large-number vocabulary.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="IndianScaleStyle.NamedScales"/> uses the named-scale vocabulary of the <c>en-IN</c> culture.
+    /// <see cref="IndianScaleStyle.CroreBased"/> uses common crore-based expressions without changing
+    /// the configured converter or the behavior of other locales.
+    /// </remarks>
+    /// <param name="number">The value to convert.</param>
+    /// <param name="scaleStyle">The Indian large-number vocabulary to use.</param>
+    /// <returns>The Indian English cardinal words for <paramref name="number"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="scaleStyle"/> is not a defined value.</exception>
+    public static string ToIndianWords(this long number, IndianScaleStyle scaleStyle = IndianScaleStyle.NamedScales)
+    {
+        var converter = (ConjunctionalScaleNumberToWordsConverter)NumberToWordsProfileCatalog.Resolve("en-IN", CultureInfo.InvariantCulture);
+        return scaleStyle switch
+        {
+            IndianScaleStyle.NamedScales => converter.ConvertUsingScales(number, converter.Scales),
+            IndianScaleStyle.CroreBased => converter.ConvertUsingScales(number, CroreBasedIndianScales),
+            _ => throw new ArgumentOutOfRangeException(nameof(scaleStyle))
+        };
+    }
 
     /// <summary>
     /// Converts the given value to localized cardinal words using the requested word form.
@@ -220,7 +263,7 @@ public static class NumberToWordsExtension
     /// </example>
     /// <param name="number">The value to convert.</param>
     /// <param name="wordForm">The requested word form.</param>
-    /// <param name="culture">The culture to use. If <c>null</c>, the current UI culture is used.</param>
+    /// <param name="culture">The culture to use. If <c>null</c>, the current culture is used.</param>
     /// <param name="addAnd">Whether to include the culture's conjunction before the terminal group.</param>
     /// <returns>The localized cardinal words for <paramref name="number"/>.</returns>
     public static string ToWords(this long number, WordForm wordForm, CultureInfo? culture = null, bool addAnd = false) =>
@@ -244,7 +287,7 @@ public static class NumberToWordsExtension
     ///
     /// <param name="number">The value to convert.</param>
     /// <param name="gender">The grammatical gender to use when the locale supports gendered forms.</param>
-    /// <param name="culture">The culture to use. If <c>null</c>, the current UI culture is used.</param>
+    /// <param name="culture">The culture to use. If <c>null</c>, the current culture is used.</param>
     /// <returns>The localized cardinal words for <paramref name="number"/>.</returns>
     public static string ToWords(this long number, GrammaticalGender gender, CultureInfo? culture = null) =>
         Configurator.GetNumberToWordsConverter(culture).Convert(number, gender);
@@ -263,7 +306,7 @@ public static class NumberToWordsExtension
     /// <param name="number">The value to convert.</param>
     /// <param name="wordForm">The requested word form.</param>
     /// <param name="gender">The grammatical gender to use when the locale supports gendered forms.</param>
-    /// <param name="culture">The culture to use. If <c>null</c>, the current UI culture is used.</param>
+    /// <param name="culture">The culture to use. If <c>null</c>, the current culture is used.</param>
     /// <returns>The localized cardinal words for <paramref name="number"/>.</returns>
     public static string ToWords(this long number, WordForm wordForm, GrammaticalGender gender, CultureInfo? culture = null) =>
         Configurator.GetNumberToWordsConverter(culture).Convert(number, wordForm, gender);

@@ -22,7 +22,12 @@ static class DateTimeHumanizeAlgorithms
     /// </summary>
     public static string PrecisionHumanize(DateOnly input, DateOnly comparisonBase, double precision, CultureInfo? culture)
     {
-        var diffDays = Math.Abs(comparisonBase.DayOfYear - input.DayOfYear);
+        if (input == comparisonBase)
+        {
+            return DateOnlyHumanizeToday(culture);
+        }
+
+        var diffDays = Math.Abs(comparisonBase.DayNumber - input.DayNumber);
         var ts = new TimeSpan(diffDays, 0, 0, 0);
         var tense = input > comparisonBase ? Tense.Future : Tense.Past;
 
@@ -75,8 +80,7 @@ static class DateTimeHumanizeAlgorithms
         if (days > 31 && days < 365 * precision)
         {
             var factor = Convert.ToInt32(Math.Floor((double)days / 30));
-            var maxMonths = Convert.ToInt32(Math.Ceiling((double)days / 30));
-            months = days >= 30 * (factor + precision) ? maxMonths : maxMonths - 1;
+            months = days >= 30 * (factor + precision) ? factor + 1 : factor;
         }
 
         // year calculation
@@ -88,8 +92,7 @@ static class DateTimeHumanizeAlgorithms
         if (days > 365)
         {
             var factor = Convert.ToInt32(Math.Floor((double)days / 365));
-            var maxMonths = Convert.ToInt32(Math.Ceiling((double)days / 365));
-            years = days >= 365 * (factor + precision) ? maxMonths : maxMonths - 1;
+            years = days >= 365 * (factor + precision) ? factor + 1 : factor;
         }
 
         // start computing result from larger units to smaller ones
@@ -149,6 +152,11 @@ static class DateTimeHumanizeAlgorithms
     /// </summary>
     public static string DefaultHumanize(DateOnly input, DateOnly comparisonBase, CultureInfo? culture)
     {
+        if (input == comparisonBase)
+        {
+            return DateOnlyHumanizeToday(culture);
+        }
+
         var tense = input > comparisonBase ? Tense.Future : Tense.Past;
         var diffDays = Math.Abs(comparisonBase.DayNumber - input.DayNumber);
         var ts = new TimeSpan(diffDays, 0, 0, 0);
@@ -158,6 +166,15 @@ static class DateTimeHumanizeAlgorithms
         var days = Math.Abs(input.DayNumber - comparisonBase.DayNumber);
 
         return DefaultHumanize(ts, sameMonth, days, tense, culture);
+    }
+
+    static string DateOnlyHumanizeToday(CultureInfo? culture)
+    {
+        var formatter = Configurator.GetFormatter(culture);
+        var now = formatter.DateHumanize(TimeUnit.Millisecond, Tense.Past, 0);
+        return formatter is DefaultFormatter defaultFormatter
+            ? defaultFormatter.DateHumanize_Today(now)
+            : now;
     }
 
     /// <summary>
@@ -211,9 +228,14 @@ static class DateTimeHumanizeAlgorithms
             return formatter.DateHumanize(TimeUnit.Day, tense, days);
         }
 
-        if (ts.TotalDays < 28)
+        if (ts.TotalDays < 7)
         {
             return formatter.DateHumanize(TimeUnit.Day, tense, ts.Days);
+        }
+
+        if (ts.TotalDays < 28)
+        {
+            return formatter.DateHumanize(TimeUnit.Week, tense, ts.Days / 7);
         }
 
         if (ts.TotalDays is >= 28 and < 30)

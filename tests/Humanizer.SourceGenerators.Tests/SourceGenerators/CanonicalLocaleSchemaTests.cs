@@ -708,6 +708,85 @@ surfaces:
     }
 
     [Fact]
+    public void SemanticDiffDetectsRelativeDateTodayChanges()
+    {
+        var leftCatalog = CreateCatalog(("zz", """
+locale: 'zz'
+surfaces:
+  phrases:
+    relativeDate:
+      today: 'today'
+"""));
+        var rightCatalog = CreateCatalog(("zz", """
+locale: 'zz'
+surfaces:
+  phrases:
+    relativeDate:
+      today: 'this day'
+"""));
+
+        Assert.NotEmpty(HumanizerSourceGenerator.LocaleSemanticDiff.Compare(leftCatalog.Locales, rightCatalog.Locales));
+    }
+
+    [Fact]
+    public void SemanticDiffDetectsInflectionChanges()
+    {
+        var leftCatalog = CreateCatalog(("zz", """
+locale: 'zz'
+surfaces:
+  inflection:
+    cardinalRule: 'EnglishLike'
+"""));
+        var rightCatalog = CreateCatalog(("zz", """
+locale: 'zz'
+surfaces:
+  inflection:
+    cardinalRule: 'French'
+"""));
+
+        Assert.NotEmpty(HumanizerSourceGenerator.LocaleSemanticDiff.Compare(leftCatalog.Locales, rightCatalog.Locales));
+    }
+
+    [Fact]
+    public void InflectionInheritanceRequiresTheSameLanguageSubtag()
+    {
+        var catalog = CreateCatalog(
+            ("en", """
+locale: 'en'
+surfaces:
+  inflection:
+    cardinalRule: 'EnglishLike'
+"""),
+            ("en-ZZ", """
+locale: 'en-ZZ'
+variantOf: 'en'
+"""),
+            ("nb", """
+locale: 'nb'
+surfaces:
+  inflection:
+    cardinalRule: 'One'
+"""),
+            ("nn", """
+locale: 'nn'
+variantOf: 'nb'
+surfaces:
+  inflection:
+    cardinalRule: 'One'
+"""));
+
+        Assert.Empty(catalog.Diagnostics);
+
+        var regional = catalog.Locales.Single(static locale => locale.LocaleCode == "en-ZZ");
+        var nynorsk = catalog.Locales.Single(static locale => locale.LocaleCode == "nn");
+
+        Assert.True(regional.Inflection!.TryGetValue("cardinalRule", out var regionalRule));
+        Assert.Equal("EnglishLike", Assert.IsType<HumanizerSourceGenerator.SimpleYamlScalar>(regionalRule).Value);
+        Assert.True(nynorsk.Inflection!.TryGetValue("cardinalRule", out var nynorskRule));
+        Assert.Equal("One", Assert.IsType<HumanizerSourceGenerator.SimpleYamlScalar>(nynorskRule).Value);
+    }
+
+    [Fact]
     public void CanonicalSurfacesMustBeMappings()
     {
         var exception = Assert.Throws<InvalidOperationException>(() =>
@@ -761,6 +840,40 @@ surfaces:
             var emitted = HumanizerSourceGenerator.CanonicalLocaleAuthoring.Emit(document);
 
             Assert.Equal(NormalizeNewlines(fileText), NormalizeNewlines(emitted));
+        }
+    }
+
+    [Fact]
+    public void CheckedInLocalesResolveCompleteExplicitByteUnitPhrases()
+    {
+        (string Key, string Symbol)[] expectedUnits =
+        [
+            ("decimalKilobyte", "kB"),
+            ("decimalMegabyte", "MB"),
+            ("decimalGigabyte", "GB"),
+            ("decimalTerabyte", "TB"),
+            ("decimalPetabyte", "PB"),
+            ("decimalExabyte", "EB"),
+            ("binaryKibibyte", "KiB"),
+            ("binaryMebibyte", "MiB"),
+            ("binaryGibibyte", "GiB"),
+            ("binaryTebibyte", "TiB"),
+            ("binaryPebibyte", "PiB")
+        ];
+        var catalog = CreateCheckedInLocaleCatalog();
+
+        Assert.Empty(catalog.Diagnostics);
+        Assert.Equal(102, catalog.Locales.Length);
+        foreach (var locale in catalog.Locales)
+        {
+            foreach (var expected in expectedUnits)
+            {
+                Assert.True(
+                    locale.Phrases!.DataUnit.Units.TryGetValue(expected.Key, out var phrase),
+                    $"{locale.LocaleCode} does not resolve {expected.Key}.");
+                Assert.NotNull(phrase.Forms);
+                Assert.Equal(expected.Symbol, phrase.Symbol);
+            }
         }
     }
 
@@ -877,6 +990,116 @@ surfaces:
         Assert.True(ur.Calendar!.TryGetValue("hijriMonths", out var hijriValue));
         var hijriSeq = Assert.IsType<HumanizerSourceGenerator.SimpleYamlSequence>(hijriValue);
         Assert.Equal(12, hijriSeq.Items.Length);
+    }
+
+    [Fact]
+    public void LocaleCoverageUsesCanonicalResolutionAndImmediateParentProvenance()
+    {
+        var catalog = CreateCheckedInLocaleCatalog();
+        var coverage = HumanizerSourceGenerator.LocaleCoverageInput.Create(catalog);
+        var nynorsk = coverage.Locales.Single(static locale => locale.Locale == "nn");
+        var english = coverage.Locales.Single(static locale => locale.Locale == "en");
+        var englishUnitedStates = coverage.Locales.Single(static locale => locale.Locale == "en-US");
+        var urduIndia = coverage.Locales.Single(static locale => locale.Locale == "ur-IN");
+
+        Assert.Equal("via", nynorsk.Capabilities["list"].Kind);
+        Assert.Equal("nb", nynorsk.Capabilities["list"].Via);
+        Assert.Equal("own", nynorsk.Capabilities["clock"].Kind);
+        Assert.Null(nynorsk.Capabilities["clock"].Via);
+        Assert.Equal("own", nynorsk.Capabilities["inflection"].Kind);
+        Assert.Null(nynorsk.Capabilities["inflection"].Via);
+        Assert.Equal("own", english.Capabilities["inflection"].Kind);
+        Assert.Equal("via", englishUnitedStates.Capabilities["inflection"].Kind);
+        Assert.Equal("en", englishUnitedStates.Capabilities["inflection"].Via);
+        Assert.Equal("via", urduIndia.Capabilities["calendarOverride"].Kind);
+        Assert.Equal("ur", urduIndia.Capabilities["calendarOverride"].Via);
+        Assert.All(
+            catalog.Locales.Where(static locale =>
+                locale.VariantOf is null ||
+                !string.Equals(
+                    locale.LocaleCode.Split('-')[0],
+                    locale.VariantOf.Split('-')[0],
+                    StringComparison.OrdinalIgnoreCase)),
+            static locale => Assert.Contains("inflection", locale.AuthoredFeatureNames));
+        Assert.All(
+            coverage.Locales,
+            locale => Assert.All(
+                coverage.Capabilities.Where(static capability => !capability.Optional),
+                capability => Assert.NotEqual("missing", locale.Capabilities[capability.Key].Kind)));
+    }
+
+    [Fact]
+    public void DurationCaseCoverageClassifiesEveryCheckedInLocale()
+    {
+        var coverage = HumanizerSourceGenerator.DurationCaseCoverageInput.Create(CreateCheckedInLocaleCatalog());
+        var german = coverage.Rows.Single(static locale => locale.Locale == "de");
+        var swissGerman = coverage.Rows.Single(static locale => locale.Locale == "de-CH");
+        var english = coverage.Rows.Single(static locale => locale.Locale == "en");
+        var nynorsk = coverage.Rows.Single(static locale => locale.Locale == "nn");
+        var azerbaijani = coverage.Rows.Single(static locale => locale.Locale == "az");
+
+        Assert.Equal(102, coverage.Rows.Length);
+        Assert.Equal("distinct", german.Classification);
+        Assert.Equal("same-language-inherited", swissGerman.Classification);
+        Assert.Equal("de", swissGerman.InheritedFrom);
+        Assert.Equal("not-applicable", english.Classification);
+        Assert.Equal("distinct", nynorsk.Classification);
+        Assert.Equal("distinct", azerbaijani.Classification);
+        Assert.Equal(57, coverage.Rows.Count(static locale => locale.Classification == "distinct"));
+        Assert.DoesNotContain(coverage.Rows, static locale => locale.Classification == "unsupported");
+        Assert.Equal(34, coverage.Rows.Count(static locale => locale.Classification == "not-applicable"));
+        Assert.Equal(11, coverage.Rows.Count(static locale => locale.Classification == "same-language-inherited"));
+        Assert.All(
+            coverage.Rows,
+            static locale => Assert.True(
+                locale.Classification is
+                    "distinct" or
+                    "invariant" or
+                    "not-applicable" or
+                    "same-language-inherited"));
+    }
+
+    [Fact]
+    public void LocaleCoverageRejectsCanonicalCatalogDiagnostics()
+    {
+        var catalog = CreateCatalog(
+            ("zz-a", """
+locale: 'zz-a'
+variantOf: 'zz-b'
+surfaces: {}
+"""),
+            ("zz-b", """
+locale: 'zz-b'
+variantOf: 'zz-a'
+surfaces: {}
+"""));
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => HumanizerSourceGenerator.LocaleCoverageInput.Create(catalog));
+
+        Assert.Contains("inheritance cycle", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LocaleCoverageTreatsHijriOnlyCalendarAsAnOwnedOverride()
+    {
+        var englishPath = FindCheckedInLocaleFiles()
+            .Single(static path => Path.GetFileName(path) == "en.yml");
+        var catalog = CreateCatalog(
+            ("en", File.ReadAllText(englishPath)),
+            ("en-HI", $"""
+locale: 'en-HI'
+variantOf: 'en'
+surfaces:
+  calendar:
+    hijriMonths:
+{MonthItems(TwelveMonthValues("Hijri"))}
+"""));
+
+        var coverage = HumanizerSourceGenerator.LocaleCoverageInput.Create(catalog);
+        var hijriVariant = coverage.Locales.Single(static locale => locale.Locale == "en-HI");
+
+        Assert.Equal("own", hijriVariant.Capabilities["calendarOverride"].Kind);
     }
 
     [Theory]

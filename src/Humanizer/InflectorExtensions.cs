@@ -25,7 +25,7 @@ namespace Humanizer;
 
 public static partial class InflectorExtensions
 {
-    private const string PascalizePattern = @"(?:[ _-]+|^)(.)";
+    private const string PascalizePattern = @"(?:[ _.-]+|^)(.)?";
     private const string UnderscorePattern1 = @"([\p{Lu}]+)([\p{Lu}][\p{Ll}])";
     private const string UnderscorePattern2 = @"([\p{Ll}\d])([\p{Lu}])";
     private const string UnderscorePattern3 = @"[-\s]";
@@ -79,6 +79,7 @@ public static partial class InflectorExtensions
     /// </returns>
     /// <remarks>
     /// Uses the default vocabulary which includes English pluralization rules and common irregular forms.
+    /// In compound rates separated by the word "per", the numerator is pluralized and the denominator is preserved.
     /// </remarks>
     /// <example>
     /// <code>
@@ -86,6 +87,8 @@ public static partial class InflectorExtensions
     /// "cat".Pluralize() => "cats"
     /// "box".Pluralize() => "boxes"
     /// "man".Pluralize() => "men"
+    /// "meter per second".Pluralize() => "meters per second"
+    /// "PERSON".Pluralize() => "PEOPLE"
     /// "cats".Pluralize(inputIsKnownToBeSingular: false) => "cats" (avoids double pluralization)
     /// </code>
     /// </example>
@@ -112,6 +115,7 @@ public static partial class InflectorExtensions
     /// </returns>
     /// <remarks>
     /// Uses the default vocabulary which includes English singularization rules and common irregular forms.
+    /// In compound rates separated by the word "per", the numerator is singularized and the denominator is preserved.
     /// </remarks>
     /// <example>
     /// <code>
@@ -119,6 +123,8 @@ public static partial class InflectorExtensions
     /// "cats".Singularize() => "cat"
     /// "boxes".Singularize() => "box"
     /// "men".Singularize() => "man"
+    /// "meters per second".Singularize() => "meter per second"
+    /// "PEOPLE".Singularize() => "PERSON"
     /// "person".Singularize(inputIsKnownToBePlural: false) => "person" (avoids incorrect singularization)
     /// </code>
     /// </example>
@@ -153,21 +159,23 @@ public static partial class InflectorExtensions
 
     /// <summary>
     /// Converts a string to PascalCase (UpperCamelCase) by capitalizing the first letter of each word
-    /// and removing spaces, underscores, and dashes.
+    /// and removing spaces, underscores, dashes, and dots.
     /// </summary>
     /// <param name="input">The string to be pascalized. Must not be null.</param>
     /// <returns>
     /// A PascalCase version of the input where each word starts with an uppercase letter and 
-    /// spaces, underscores, and dashes are removed.
+    /// spaces, underscores, dashes, and dots are removed.
     /// </returns>
     /// <remarks>
     /// PascalCase (also known as UpperCamelCase) is commonly used for class names and type names in .NET.
+    /// Casing is culture-invariant.
     /// </remarks>
     /// <example>
     /// <code>
     /// "some_property_name".Pascalize() => "SomePropertyName"
     /// "some property name".Pascalize() => "SomePropertyName"
     /// "some-property-name".Pascalize() => "SomePropertyName"
+    /// "some.property.name".Pascalize() => "SomePropertyName"
     /// </code>
     /// </example>
     public static string Pascalize(this string input) =>
@@ -175,41 +183,106 @@ public static partial class InflectorExtensions
             ? result
             : PascalizeRegex().Replace(input, match => match
                 .Groups[1]
-                .Value.ToUpper());
+                .Value.ToUpperInvariant());
 
     /// <summary>
-    /// Converts a string to camelCase (lowerCamelCase) by capitalizing the first letter of each word
-    /// except the first word, and removing spaces, underscores, and dashes.
+    /// Converts a string to PascalCase (UpperCamelCase), optionally normalizing uppercase sequences as words.
+    /// </summary>
+    /// <param name="input">The string to be pascalized. Must not be null.</param>
+    /// <param name="preserveUppercase">
+    /// <see langword="true"/> to preserve uppercase sequences; <see langword="false"/> to normalize them as words.
+    /// </param>
+    /// <returns>A PascalCase version of the input.</returns>
+    /// <remarks>
+    /// Uppercase sequences are split using identifier word boundaries, and casing is culture-invariant.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// "SMS parameter provider".Pascalize(preserveUppercase: true) => "SMSParameterProvider"
+    /// "HTTP IO module".Pascalize(preserveUppercase: false) => "HttpIoModule"
+    /// </code>
+    /// </example>
+    public static string Pascalize(this string input, bool preserveUppercase) =>
+        preserveUppercase ? input.Pascalize() : input.Underscore().Pascalize();
+
+    /// <summary>
+    /// Converts a string to camelCase (lowerCamelCase) by preserving leading underscores, capitalizing
+    /// the first letter of each word except the first word, and removing other spaces, underscores, dashes, and dots.
     /// </summary>
     /// <param name="input">The string to be camelized. Must not be null.</param>
     /// <returns>
-    /// A camelCase version of the input where the first word starts with a lowercase letter,
-    /// subsequent words start with uppercase letters, and spaces, underscores, and dashes are removed.
+    /// A camelCase version of the input where leading underscores are preserved, the first word starts
+    /// with a lowercase letter, subsequent words start with uppercase letters, and other separators are removed.
     /// </returns>
     /// <remarks>
-    /// camelCase is the same as PascalCase except the first character is lowercase.
+    /// camelCase is the same as PascalCase except any leading underscores are preserved and the first
+    /// character after them is lowercase.
     /// It's commonly used for variable and method parameter names in .NET.
+    /// Casing is culture-invariant.
     /// </remarks>
     /// <example>
     /// <code>
     /// "some_property_name".Camelize() => "somePropertyName"
     /// "some property name".Camelize() => "somePropertyName"
+    /// "some.property.name".Camelize() => "somePropertyName"
     /// "SomePropertyName".Camelize() => "somePropertyName"
+    /// "_some_property_name".Camelize() => "_somePropertyName"
     /// </code>
     /// </example>
     public static string Camelize(this string input)
     {
-        if (TryPascalizeAscii(input, lowerFirst: true, out var result))
+        var leadingUnderscoreCount = 0;
+        while (leadingUnderscoreCount < input.Length && input[leadingUnderscoreCount] == '_')
         {
-            return result;
+            leadingUnderscoreCount++;
         }
 
-        var word = input.Pascalize();
-        return word.Length > 0
+        var suffix = leadingUnderscoreCount > 0 ? input[leadingUnderscoreCount..] : input;
+        string camelized;
+        if (TryPascalizeAscii(suffix, lowerFirst: true, out var result))
+        {
+            camelized = result;
+        }
+        else
+        {
+            var word = suffix.Pascalize();
+            camelized = word.Length > 0
+                ? StringHumanizeExtensions.Concat(
+                    char.ToLowerInvariant(word[0]),
+                    word.AsSpan(1))
+                : word;
+        }
+
+        return leadingUnderscoreCount > 0
             ? StringHumanizeExtensions.Concat(
-                char.ToLower(word[0]),
-                word.AsSpan(1))
-            : word;
+                input.AsSpan(0, leadingUnderscoreCount),
+                camelized.AsSpan())
+            : camelized;
+    }
+
+    /// <summary>
+    /// Converts a string to camelCase while preserving leading underscores and normalizing uppercase sequences as words.
+    /// </summary>
+    /// <param name="input">The string to be converted. Must not be null.</param>
+    /// <returns>A camelCase version of the input with leading underscores preserved and uppercase sequences normalized.</returns>
+    /// <remarks>
+    /// Uppercase sequences are split using identifier word boundaries, and casing is culture-invariant.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// "IOModule".ToCamelCase() => "ioModule"
+    /// "__XMLHttpRequest".ToCamelCase() => "__xmlHttpRequest"
+    /// </code>
+    /// </example>
+    public static string ToCamelCase(this string input)
+    {
+        var leadingUnderscoreCount = input.Length - input.TrimStart('_').Length;
+        var camelized = input[leadingUnderscoreCount..].Underscore().TrimStart('_').Camelize();
+        return leadingUnderscoreCount > 0
+            ? StringHumanizeExtensions.Concat(
+                input.AsSpan(0, leadingUnderscoreCount),
+                camelized.AsSpan())
+            : camelized;
     }
 
     static bool TryPascalizeAscii(string input, bool lowerFirst, [NotNullWhen(true)] out string? result)
@@ -220,14 +293,14 @@ public static partial class InflectorExtensions
             return false;
         }
 
-        var textInfo = CultureInfo.CurrentCulture.TextInfo;
+        var textInfo = CultureInfo.InvariantCulture.TextInfo;
         var buffer = new char[input.Length];
         var pos = 0;
         var capitalizeNext = true;
         for (var i = 0; i < input.Length; i++)
         {
             var c = input[i];
-            if (c is ' ' or '_' or '-')
+            if (c is ' ' or '_' or '-' or '.')
             {
                 capitalizeNext = true;
                 continue;
@@ -256,6 +329,7 @@ public static partial class InflectorExtensions
     /// </returns>
     /// <remarks>
     /// This transformation is commonly used for database column names, file names, and URL slugs in some conventions.
+    /// Casing is culture-invariant.
     /// </remarks>
     /// <example>
     /// <code>
@@ -266,13 +340,36 @@ public static partial class InflectorExtensions
     /// </code>
     /// </example>
     public static string Underscore(this string input) =>
-        TryUnderscoreAscii(input, separator: '_', replaceUnderscore: false, out var result)
-            ? result
-            : UnderscoreRegex3()
-                .Replace(
-                    UnderscoreRegex2().Replace(
-                        UnderscoreRegex1().Replace(input, "$1_$2"), "$1_$2"), "_")
-                .ToLower();
+        input.Underscore(preserveCase: false);
+
+    /// <summary>
+    /// Separates words with underscores, optionally preserving the input casing.
+    /// </summary>
+    /// <param name="input">The string to be underscored. Must not be null.</param>
+    /// <param name="preserveCase">
+    /// <see langword="true"/> to preserve the input casing; <see langword="false"/> to convert the result to lowercase.
+    /// </param>
+    /// <returns>A string with words separated by underscores.</returns>
+    /// <remarks>
+    /// Acronyms are split using identifier word boundaries, and lowercasing is culture-invariant.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// "SomePropertyName".Underscore(preserveCase: true) => "Some_Property_Name"
+    /// "HTMLParser".Underscore(preserveCase: true) => "HTML_Parser"
+    /// </code>
+    /// </example>
+    public static string Underscore(this string input, bool preserveCase)
+    {
+        if (TryUnderscoreAscii(input, separator: '_', replaceUnderscore: false, preserveCase: preserveCase, out var result))
+            return result;
+
+        result = UnderscoreRegex3()
+            .Replace(
+                UnderscoreRegex2().Replace(
+                    UnderscoreRegex1().Replace(input, "$1_$2"), "$1_$2"), "_");
+        return preserveCase ? result : result.ToLowerInvariant();
+    }
 
     /// <summary>
     /// Replaces all underscores in the string with dashes (hyphens).
@@ -282,7 +379,7 @@ public static partial class InflectorExtensions
     /// A string with all underscores replaced by dashes.
     /// </returns>
     /// <remarks>
-    /// This is typically used after calling <see cref="Underscore"/> to convert from underscore_case to dash-case (kebab-case).
+    /// This is typically used after calling <see cref="Underscore(string)"/> to convert from underscore_case to dash-case (kebab-case).
     /// </remarks>
     /// <example>
     /// <code>
@@ -321,7 +418,8 @@ public static partial class InflectorExtensions
     /// </returns>
     /// <remarks>
     /// Kebab-case is commonly used for CSS class names, HTML attributes, and URL slugs.
-    /// This is equivalent to calling <see cref="Underscore"/> followed by <see cref="Dasherize"/>.
+    /// This is equivalent to calling <see cref="Underscore(string)"/> followed by <see cref="Dasherize"/>.
+    /// Casing is culture-invariant.
     /// </remarks>
     /// <example>
     /// <code>
@@ -332,12 +430,43 @@ public static partial class InflectorExtensions
     /// </code>
     /// </example>
     public static string Kebaberize(this string input) =>
-        TryUnderscoreAscii(input, separator: '-', replaceUnderscore: true, out var result)
+        TryUnderscoreAscii(input, separator: '-', replaceUnderscore: true, preserveCase: false, out var result)
             ? result
             : Underscore(input)
                 .Dasherize();
 
-    static bool TryUnderscoreAscii(string input, char separator, bool replaceUnderscore, [NotNullWhen(true)] out string? result)
+    /// <summary>
+    /// Converts an English noun or noun phrase to its possessive form.
+    /// </summary>
+    /// <param name="word">The noun or noun phrase to convert.</param>
+    /// <param name="inputIsPlural">Whether <paramref name="word"/> is plural.</param>
+    /// <param name="useApostropheOnlyForSingularWordsEndingInS">
+    /// Whether singular words ending in <c>s</c> should use only an apostrophe instead of <c>'s</c>.
+    /// </param>
+    /// <returns>The possessive form of <paramref name="word"/>.</returns>
+    [return: NotNullIfNotNull(nameof(word))]
+    public static string? ToPossessive(
+        this string? word,
+        bool inputIsPlural = false,
+        bool useApostropheOnlyForSingularWordsEndingInS = false)
+    {
+        if (word is null || string.IsNullOrWhiteSpace(word))
+        {
+            return word;
+        }
+
+        var endsInS = word.EndsWith("s", StringComparison.OrdinalIgnoreCase);
+        return inputIsPlural && endsInS || useApostropheOnlyForSingularWordsEndingInS && endsInS
+            ? StringHumanizeExtensions.Concat(word.AsSpan(), '\'')
+            : StringHumanizeExtensions.Concat(word.AsSpan(), "'s".AsSpan());
+    }
+
+    static bool TryUnderscoreAscii(
+        string input,
+        char separator,
+        bool replaceUnderscore,
+        bool preserveCase,
+        [NotNullWhen(true)] out string? result)
     {
         result = null;
         if (!IsAscii(input))
@@ -345,7 +474,7 @@ public static partial class InflectorExtensions
             return false;
         }
 
-        var textInfo = CultureInfo.CurrentCulture.TextInfo;
+        var textInfo = CultureInfo.InvariantCulture.TextInfo;
         var buffer = new char[Math.Max(1, input.Length * 2)];
         var pos = 0;
         for (var i = 0; i < input.Length; i++)
@@ -365,11 +494,11 @@ public static partial class InflectorExtensions
                     buffer[pos++] = separator;
                 }
 
-                buffer[pos++] = textInfo.ToLower(c);
+                buffer[pos++] = preserveCase ? c : textInfo.ToLower(c);
                 continue;
             }
 
-            buffer[pos++] = textInfo.ToLower(c);
+            buffer[pos++] = preserveCase ? c : textInfo.ToLower(c);
         }
 
         result = new(buffer, 0, pos);

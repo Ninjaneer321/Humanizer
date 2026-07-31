@@ -63,6 +63,8 @@ public partial class HumanizerSourceGeneratorTests
         var source = GetGeneratedSource("TimeOnlyToClockNotationProfileCatalog.g.cs");
 
         Assert.Contains("new PhraseClockNotationConverter(", source);
+        Assert.Contains("Resolve(string kind, CultureInfo culture)", source);
+        Assert.Contains(".WithCulture(culture);", source);
         Assert.DoesNotContain("new FrenchTimeOnlyToClockNotationConverter()", source);
         Assert.DoesNotContain("new GermanTimeOnlyToClockNotationConverter()", source);
         Assert.DoesNotContain("new LuxembourgishTimeOnlyToClockNotationConverter()", source);
@@ -74,13 +76,17 @@ public partial class HumanizerSourceGeneratorTests
     {
         const string baseLocale = """
 locale: 'zz-base'
-surfaces: {}
+surfaces:
+  durationCases:
+    classification: 'not-applicable'
 """;
 
         const string childLocale = """
 locale: 'zz-child'
 variantOf: 'zz-base'
 surfaces:
+  durationCases:
+    classification: 'not-applicable'
   ordinal:
     date:
       pattern: '{day} MMMM yyyy'
@@ -506,7 +512,7 @@ surfaces:
         Assert.Contains("через два дня", source);
         Assert.Contains("vorgestern", source);
         Assert.Contains("PhraseCountPlacement.BeforeForm", source);
-        Assert.Contains("new LocalizedPhraseForms(\"days\", \"day\"", source);
+        Assert.Contains("new LocalizedPhraseForms(\"days\", null, \"day\"", source);
         Assert.Contains("new LocalizedUnitPhrase(new LocalizedPhraseForms(\"byte\"", source);
     }
 
@@ -536,6 +542,8 @@ surfaces:
     public void TokenMapLocalesReportDiagnosticsAndSkipGenerationWhenInputIsMalformed()
     {
         const string invalidLocale = """
+durationCases:
+  classification: 'not-applicable'
 wordsToNumber:
   engine: 'token-map'
   normalizationProfile: 42
@@ -747,6 +755,8 @@ wordsToNumber:
     public void UnitLeadingCompoundScalesAcceptNamedOrdinalCases()
     {
         const string locale = """
+durationCases:
+  classification: 'not-applicable'
 numberToWords:
   engine: 'unit-leading-compound'
   zeroWord: 'zero'
@@ -809,6 +819,8 @@ numberToWords:
     public void JoinedScaleProfilesEmitOptionalRemainderAndPluralScaleForms()
     {
         const string locale = """
+durationCases:
+  classification: 'not-applicable'
 numberToWords:
   engine: 'joined-scale'
   maximumValue: 2000001
@@ -855,6 +867,8 @@ numberToWords:
     public void ConjoinedGenderedScaleProfilesEmitGenderedFormsFromLocaleData()
     {
         const string locale = """
+durationCases:
+  classification: 'not-applicable'
 numberToWords:
   engine: 'conjoined-gendered-scale'
   maximumValue: 1000
@@ -928,6 +942,8 @@ numberToWords:
     public void JoinedScaleProfilesEmitOptionalGenderedOrdinalBlocks()
     {
         const string locale = """
+durationCases:
+  classification: 'not-applicable'
 numberToWords:
   engine: 'joined-scale'
   maximumValue: 1000
@@ -980,6 +996,8 @@ numberToWords:
     public void NumberWordSuffixOrdinalizerProfilesEmitOptionalNeuterBlock()
     {
         const string locale = """
+durationCases:
+  classification: 'not-applicable'
 ordinalizer:
   engine: 'number-word-suffix'
   masculine:
@@ -1014,6 +1032,8 @@ ordinalizer:
     public void NumberToWordsUnknownEngineFallsBackToConventionalConverterName()
     {
         const string locale = """
+durationCases:
+  classification: 'not-applicable'
 numberToWords:
   engine: 'semantic-custom'
 """;
@@ -1033,6 +1053,8 @@ numberToWords:
     public void FormatterProfilesAcceptGrammarAliasesAndPreferThemOverLegacyFields()
     {
         const string locale = """
+durationCases:
+  classification: 'not-applicable'
 formatter:
   engine: 'profiled'
   resourceKeyDetector: 'arabic-like'
@@ -1123,6 +1145,8 @@ grammar:
     public void FormatterProfilesAcceptExactDateAndTimeSpanFormRules()
     {
         const string locale = """
+durationCases:
+  classification: 'not-applicable'
 formatter:
   engine: 'profiled'
   resourceKeyDetector: 'singular-plural'
@@ -1161,6 +1185,8 @@ formatter:
     public void NumberToWordsProfilesAcceptExactAndSpecialCaseLexiconNames()
     {
         const string dualFormLocale = """
+durationCases:
+  classification: 'not-applicable'
 numberToWords:
   engine: 'dual-form-scale'
   conjunction: 'u'
@@ -1228,6 +1254,8 @@ numberToWords:
 """;
 
         const string contextualLocale = """
+durationCases:
+  classification: 'not-applicable'
 numberToWords:
   engine: 'contextual-decimal'
   zeroWord: 'zero'
@@ -1252,6 +1280,8 @@ numberToWords:
 """;
 
         const string westSlavicLocale = """
+durationCases:
+  classification: 'not-applicable'
 numberToWords:
   engine: 'west-slavic-gendered'
   useCulture: true
@@ -1322,6 +1352,8 @@ numberToWords:
     public void PrefixedTensScaleProfilesAcceptCompactScaleAndPrefixMappings()
     {
         const string locale = """
+durationCases:
+  classification: 'not-applicable'
 wordsToNumber:
   engine: 'prefixed-tens-scale'
   cardinalMap:
@@ -1368,6 +1400,8 @@ wordsToNumber:
     public void ChildLocaleMappingsMergeWithParentMappingsAtGenerationTime()
     {
         const string baseLocale = """
+durationCases:
+  classification: 'not-applicable'
 numberToWords:
   engine: 'conjunctional-scale'
   minusWord: 'base-minus'
@@ -1404,6 +1438,9 @@ numberToWords:
 
         const string childLocale = """
 inherits: 'zz-base'
+
+durationCases:
+  classification: 'not-applicable'
 
 numberToWords:
   engine: 'conjunctional-scale'
@@ -1449,6 +1486,8 @@ numberToWords:
     public void SparseNumericLexicalTablesExpandIntoGeneratedArrays()
     {
         const string locale = """
+durationCases:
+  classification: 'not-applicable'
 numberToWords:
   engine: 'conjunctional-scale'
   minusWord: 'minus'
@@ -1506,6 +1545,8 @@ numberToWords:
     public void NumberToWordsProfilesAcceptOmittedEmptyStringDefaults()
     {
         const string variantLocale = """
+durationCases:
+  classification: 'not-applicable'
 numberToWords:
   engine: 'variant-decade'
   minusWord: 'minus'
@@ -1525,9 +1566,17 @@ numberToWords:
     - 'seventy'
     - 'eighty'
     - 'ninety'
+  scales:
+    -
+      value: 1000
+      singular: 'thousand'
+      plural: 'thousand'
+      omitOne: true
 """;
 
         const string triadLocale = """
+durationCases:
+  classification: 'not-applicable'
 numberToWords:
   engine: 'triad-scale'
   zeroWord: 'zero'
@@ -1604,6 +1653,8 @@ numberToWords:
 """;
 
         const string invertedLocale = """
+durationCases:
+  classification: 'not-applicable'
 numberToWords:
   engine: 'inverted-tens'
   minusWord: 'minus'
@@ -1650,6 +1701,8 @@ numberToWords:
 """;
 
         const string scaleLocale = """
+durationCases:
+  classification: 'not-applicable'
 numberToWords:
   engine: 'scale-strategy'
   cardinalStrategy: 'swedish'
@@ -1691,6 +1744,8 @@ numberToWords:
 """;
 
         const string billionLocale = """
+durationCases:
+  classification: 'not-applicable'
 numberToWords:
   engine: 'billion-strategy'
   minusWord: 'minus'
@@ -1726,6 +1781,8 @@ numberToWords:
 """;
 
         const string joinedLocale = """
+durationCases:
+  classification: 'not-applicable'
 numberToWords:
   engine: 'joined-scale'
   maximumValue: 1000
@@ -1748,12 +1805,27 @@ numberToWords:
       name: 'thousand'
 """;
 
+        var billionAuthoredLocale = billionLocale.Replace(
+            "    billionStrategy: 'thousand-millions'\n    unitsMap:",
+            """
+    billionStrategy: 'thousand-millions'
+    scales:
+      -
+        value: 1000000000000
+        singular: 'trillion'
+        plural: 'trillions'
+    unitsMap:
+""",
+            StringComparison.Ordinal);
+        Assert.NotEqual(billionLocale, billionAuthoredLocale);
+
         var runResult = RunGenerator(
             new InMemoryAdditionalText(@"E:\Dev\Humanizer\src\Humanizer\Locales\zz-variant-defaults.yml", variantLocale),
             new InMemoryAdditionalText(@"E:\Dev\Humanizer\src\Humanizer\Locales\zz-triad-defaults.yml", triadLocale),
             new InMemoryAdditionalText(@"E:\Dev\Humanizer\src\Humanizer\Locales\zz-inverted-defaults.yml", invertedLocale),
             new InMemoryAdditionalText(@"E:\Dev\Humanizer\src\Humanizer\Locales\zz-scale-defaults.yml", scaleLocale),
             new InMemoryAdditionalText(@"E:\Dev\Humanizer\src\Humanizer\Locales\zz-billion-defaults.yml", billionLocale),
+            new InMemoryAdditionalText(@"E:\Dev\Humanizer\src\Humanizer\Locales\zz-billion-authored.yml", billionAuthoredLocale),
             new InMemoryAdditionalText(@"E:\Dev\Humanizer\src\Humanizer\Locales\zz-joined-defaults.yml", joinedLocale));
 
         Assert.Empty(runResult.Diagnostics);
@@ -1768,13 +1840,22 @@ numberToWords:
         Assert.Contains("case \"zz-inverted-defaults\": return", numberSource);
         Assert.Contains("case \"zz-scale-defaults\": return", numberSource);
         Assert.Contains("case \"zz-billion-defaults\": return", numberSource);
+        Assert.Contains("case \"zz-billion-authored\": return", numberSource);
         Assert.Contains("case \"zz-joined-defaults\": return", numberSource);
+
+        var defaultBlock = ExtractCacheClassBody(numberSource, "zz_billion_defaults_cache");
+        Assert.Contains("new BillionStrategyCardinalScale[] { new(1000000UL, \"million\", \"millions\") }, false,", defaultBlock);
+
+        var authoredBlock = ExtractCacheClassBody(numberSource, "zz_billion_authored_cache");
+        Assert.Contains("new BillionStrategyCardinalScale[] { new(1000000000000UL, \"trillion\", \"trillions\") }, true,", authoredBlock);
     }
 
     [Fact]
     public void LinkedVigesimalProfilesEmitAlternateTerminalRemainderJoinerFields()
     {
         const string locale = """
+durationCases:
+  classification: 'not-applicable'
 numberToWords:
   engine: 'linked-vigesimal'
   zeroWord: 'zero'
@@ -1831,6 +1912,8 @@ wordsToNumber:
     public void WordsToNumberProfilesAcceptOmittedEmptyIgnoredToken()
     {
         const string locale = """
+durationCases:
+  classification: 'not-applicable'
 wordsToNumber:
   engine: 'compound-scale'
   cardinalMap:
@@ -2051,12 +2134,20 @@ wordsToNumber:
             SourceText.From(File.ReadAllText(path), Encoding.UTF8);
     }
 
-    sealed class InMemoryAdditionalText(string path, string text, bool canonicalizeLegacySchema = true) : AdditionalText
+    sealed class InMemoryAdditionalText(
+        string path,
+        string text,
+        bool canonicalizeLegacySchema = true,
+        bool addDefaultInflection = true) : AdditionalText
     {
         readonly string path = path;
-        readonly string text = canonicalizeLegacySchema
-            ? CanonicalizeLocaleText(path, text)
-            : text;
+        readonly string text = AddDefaultInflection(
+            AddDefaultDurationEvidence(
+                canonicalizeLegacySchema
+                    ? CanonicalizeLocaleText(path, text)
+                    : text,
+                canonicalizeLegacySchema),
+            canonicalizeLegacySchema && addDefaultInflection);
 
         public override string Path => path;
 
@@ -2073,6 +2164,68 @@ wordsToNumber:
             }
 
             return HumanizerSourceGenerator.LegacyLocaleMigration.ConvertToCanonicalYaml(localeCode, candidateText);
+        }
+
+        static string AddDefaultDurationEvidence(string candidateText, bool enabled)
+        {
+            if (!enabled)
+            {
+                return candidateText;
+            }
+
+            var lineEnding = candidateText.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+            var marker = $"  durationCases:{lineEnding}    classification: 'not-applicable'{lineEnding}";
+            if (!candidateText.Contains(marker, StringComparison.Ordinal))
+            {
+                return candidateText;
+            }
+
+            var evidence = string.Join(
+                lineEnding,
+                "    reason: 'Synthetic fixture does not exercise duration-case behavior.'",
+                "    sources:",
+                "      fixture:",
+                "        kind: 'grammar'",
+                "        url: 'https://example.invalid/duration-cases'",
+                "        revision: 'synthetic-test-fixture'",
+                "        locator: 'not applicable to this fixture'",
+                "        credit: 'Humanizer test suite'",
+                "    provenance:",
+                "      - fixture",
+                "");
+            return candidateText.Replace(marker, marker + evidence, StringComparison.Ordinal);
+        }
+
+        static string AddDefaultInflection(string candidateText, bool enabled)
+        {
+            if (!enabled ||
+                candidateText.Split('\n').Any(
+                    static line => string.Equals(line.TrimEnd('\r'), "  inflection:", StringComparison.Ordinal)) ||
+                candidateText.Contains("variantOf:", StringComparison.Ordinal))
+            {
+                return candidateText;
+            }
+
+            const string inflection = """
+  inflection:
+    cardinalRule: 'Other'
+""";
+            var lineEnding = candidateText.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+            var normalizedInflection = inflection
+                .Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Replace("\n", lineEnding, StringComparison.Ordinal);
+            if (candidateText.Contains("surfaces: {}", StringComparison.Ordinal))
+            {
+                return candidateText.Replace(
+                    "surfaces: {}",
+                    $"surfaces:{lineEnding}{normalizedInflection}",
+                    StringComparison.Ordinal);
+            }
+
+            return candidateText.Replace(
+                $"surfaces:{lineEnding}",
+                $"surfaces:{lineEnding}{normalizedInflection}{lineEnding}",
+                StringComparison.Ordinal);
         }
     }
 }

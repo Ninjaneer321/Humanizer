@@ -10,6 +10,9 @@ static class LocaleCoverageData
 
     public static IReadOnlyList<string> ShippedLocales => ShippedLocaleNames;
 
+    public static TheoryData<string, bool> IndianScaleStyleApplicabilityTheoryData { get; } =
+        CreateIndianScaleStyleApplicabilityTheoryData();
+
     // Representative non-first-of-month date sample.
     public static TheoryData<string, DateExpectationRow> DateToOrdinalWords2022January25ExpectationTheoryData { get; } = new()
     {
@@ -1330,7 +1333,7 @@ static class LocaleCoverageData
             { "de-LI", "1 und 2", "1, 2 und 3" },
             { "el", "1 και 2", "1, 2 και 3" },
             { "en", "1 and 2", "1, 2, and 3" },
-            { "en-GB", "1 and 2", "1, 2, and 3" },
+            { "en-GB", "1 and 2", "1, 2 and 3" },
             { "en-IN", "1 and 2", "1, 2, and 3" },
             { "en-US", "1 and 2", "1, 2, and 3" },
             { "es", "1 y 2", "1, 2 y 3" },
@@ -1452,8 +1455,8 @@ static class LocaleCoverageData
             { "fr-BE", 1, "première" },
             { "fr-CH", 1, "première" },
             { "he", 1, "1" },
-            { "hr", 1, "1" },
-            { "bs", 1, "1" },
+            { "hr", 1, "prva" },
+            { "bs", 1, "prva" },
             { "hu", 1, "első" },
             { "hy", 1, "առաջին" },
             { "id", 1, "pertama" },
@@ -1477,9 +1480,9 @@ static class LocaleCoverageData
             { "ro", 1, "prima" },
             { "ru", 1, "первая" },
             { "sk", 1, "prvá" },
-            { "sl", 1, "1" },
-            { "sr", 1, "1" },
-            { "sr-Latn", 1, "1" },
+            { "sl", 1, "prva" },
+            { "sr", 1, "прва" },
+            { "sr-Latn", 1, "prva" },
             { "sv", 1, "första" },
             { "ta", 1, "முதலாவது" },
             { "th", 1, "หนึ่ง" },
@@ -1802,6 +1805,17 @@ static class LocaleCoverageData
         }
 
         throw new Xunit.Sdk.XunitException("Could not locate src/Humanizer/Locales.");
+    }
+
+    static TheoryData<string, bool> CreateIndianScaleStyleApplicabilityTheoryData()
+    {
+        var result = new TheoryData<string, bool>();
+        foreach (var localeName in ShippedLocaleNames)
+        {
+            result.Add(localeName, localeName == "en-IN");
+        }
+
+        return result;
     }
 }
 

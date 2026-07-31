@@ -7,6 +7,21 @@
 locale: 'km'
 
 surfaces:
+  inflection:
+    cardinalRule: 'Other'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'km grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'និង'
@@ -202,6 +217,50 @@ surfaces:
         forms:
           default: 'តេរ៉ាបៃ'
         symbol: 'TB'
+      decimalKilobyte:
+        forms:
+          default: 'គីឡូបៃ'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms:
+          default: 'មេហ្គាបៃ'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms:
+          default: 'ជីហ្គាបៃ'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms:
+          default: 'តេរ៉ាបៃ'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms:
+          default: 'ប៉េតាបៃ'
+        symbol: 'PB'
+      decimalExabyte:
+        forms:
+          default: 'អិចសាបៃ'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms:
+          default: 'គីប៊ីបៃ'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms:
+          default: 'មេប៊ីបៃ'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms:
+          default: 'ជីប៊ីបៃ'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms:
+          default: 'តេប៊ីបៃ'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms:
+          default: 'ប៉េប៊ីបៃ'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'មិល្លីវិនាទី'
@@ -223,7 +282,7 @@ surfaces:
   number:
     words:
       engine: 'joined-scale'
-      maximumValue: 999999999
+      maximumValue: 9223372036854775807
       zeroWord: 'សូន្យ'
       minusWord: 'ដក'
       negativeJoinWord: ' '
@@ -299,6 +358,7 @@ surfaces:
             1000: 'ទីមួយពាន់'
             1234: 'ទីមួយពាន់ ពីររយ សាមសិបបួន'
     parse:
+      decimalMarker: 'ចុច'
       engine: 'token-map'
       normalizationProfile: 'LowercaseRemovePeriods'
       allowTerminalOrdinalToken: true

@@ -17,6 +17,9 @@ public class EstonianLocaleParityTests
     [InlineData(200, "kakssada")]
     [InlineData(2000, "kaks tuhat")]
     [InlineData(2000000, "kaks miljonit")]
+    [InlineData(1_000_000_000, "miljard")]
+    [InlineData(1_000_000_000_000, "biljon")]
+    [InlineData(1_000_000_000_000_000, "biljard")]
     [InlineData(1234567, "miljon kakssada kolmkümmend neli tuhat viissada kuuskümmend seitse")]
     public void ToWords_UsesEstonianCardinalForms(long number, string expected) =>
         Assert.Equal(expected, number.ToWords(Estonian));
@@ -47,9 +50,14 @@ public class EstonianLocaleParityTests
     [InlineData("kahekümneühetuhandes", 21000)]
     [InlineData("21.", 21)]
     [InlineData("miinus kakskümmend üks", -21)]
+    [InlineData("biljard", 1_000_000_000_000_000)]
+    [InlineData("kaks biljardit", 2_000_000_000_000_000)]
     public void ToNumber_ParsesEstonianCardinalOrdinalAndNumericOrdinalForms(string words, long expected) =>
         Assert.Equal(expected, words.ToNumber(Estonian));
 
+    [Fact]
+    public void ToWords_UsesEstonianLongScaleTrillion() =>
+        Assert.Equal("triljon", 1_000_000_000_000_000_000.ToWords(Estonian));
 
     [Fact]
     public void ToNumber_DoesNotTreatMinusWordAsZeroToken() =>
@@ -65,10 +73,10 @@ public class EstonianLocaleParityTests
     }
 
     [Theory]
-    [InlineData(10003)]
-    [InlineData(21001)]
-    public void ToOrdinalWords_RejectsUnmodeledEstonianOrdinalsInsteadOfReturningCardinals(int number) =>
-        Assert.Throws<NotImplementedException>(() => number.ToOrdinalWords(Estonian));
+    [InlineData(10003, "kümne tuhande kolmas")]
+    [InlineData(21001, "kahekümne ühe tuhande esimene")]
+    public void ToOrdinalWords_ComposesEstonianOrdinals(int number, string expected) =>
+        Assert.Equal(expected, number.ToOrdinalWords(Estonian));
 
     [Theory]
     [InlineData(0, "0.")]

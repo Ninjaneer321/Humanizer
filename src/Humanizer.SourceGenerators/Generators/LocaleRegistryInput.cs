@@ -142,7 +142,109 @@ public sealed partial class HumanizerSourceGenerator
                 context.AddSource(helperName + ".g.cs", SourceText.From(builder.ToString(), Encoding.UTF8));
             }
 
+            EmitWordsToDecimalNumberRegistrations(context);
+            EmitSupportedCultureApi(context);
             EmitNumberFormattingOverrides(context);
+        }
+
+        void EmitWordsToDecimalNumberRegistrations(SourceProductionContext context)
+        {
+            var builder = new StringBuilder();
+            builder.AppendLine("using System;");
+            builder.AppendLine();
+            builder.AppendLine("namespace Humanizer;");
+            builder.AppendLine();
+            builder.AppendLine("internal static class WordsToDecimalNumberConverterRegistryRegistrations");
+            builder.AppendLine("{");
+            builder.AppendLine("    internal static void Register(WordsToDecimalNumberConverterRegistry registry)");
+            builder.AppendLine("    {");
+
+            foreach (var locale in locales.OrderBy(static locale => locale.LocaleCode, StringComparer.Ordinal))
+            {
+                if (locale.WordsToNumber is not { } wordsToNumber ||
+                    GetOptionalString(wordsToNumber.ProfileRoot, "decimalMarker") is not { } decimalMarker)
+                {
+                    continue;
+                }
+
+                var root = wordsToNumber.ProfileRoot;
+                var negativePrefixes = root.TryGetProperty("negativePrefixes", out _)
+                    ? CreateOptionalStringArrayExpression(root, "negativePrefixes")
+                    : GetOptionalString(root, "minusWord") is { } minusWord
+                        ? "new string[] { " + QuoteLiteral(minusWord + " ") + " }"
+                        : "Array.Empty<string>()";
+
+                builder.Append("        registry.Register(");
+                builder.Append(QuoteLiteral(locale.LocaleCode));
+                builder.Append(", culture => new LocalizedWordsToDecimalNumberConverter(culture, ");
+                builder.Append(QuoteLiteral(decimalMarker));
+                builder.Append(", ");
+                builder.Append(negativePrefixes);
+                builder.Append(", ");
+                builder.Append(CreateOptionalStringArrayExpression(root, "negativeSuffixes"));
+                builder.AppendLine("));");
+            }
+
+            builder.AppendLine("    }");
+            builder.AppendLine("}");
+
+            context.AddSource(
+                "WordsToDecimalNumberConverterRegistryRegistrations.g.cs",
+                SourceText.From(builder.ToString(), Encoding.UTF8));
+        }
+
+        void EmitSupportedCultureApi(SourceProductionContext context)
+        {
+            var builder = new StringBuilder();
+            builder.AppendLine("using System;");
+            builder.AppendLine("using System.Collections.Generic;");
+            builder.AppendLine("using System.Globalization;");
+            builder.AppendLine();
+            builder.AppendLine("namespace Humanizer;");
+            builder.AppendLine();
+            builder.AppendLine("public static partial class Configurator");
+            builder.AppendLine("{");
+            builder.AppendLine("    /// <summary>");
+            builder.AppendLine("    /// Determines whether Humanizer includes complete generated locale support for the specified culture.");
+            builder.AppendLine("    /// </summary>");
+            builder.AppendLine("    /// <param name=\"culture\">The culture to check.</param>");
+            builder.AppendLine("    /// <returns><see langword=\"true\"/> when the culture or one of its named parents has generated locale support; otherwise, <see langword=\"false\"/>.</returns>");
+            builder.AppendLine("    /// <remarks>");
+            builder.AppendLine("    /// This considers parent-culture fallback, but does not report support merely because Humanizer can fall back to its default English localizers.");
+            builder.AppendLine("    /// </remarks>");
+            builder.AppendLine("    /// <exception cref=\"ArgumentNullException\">Thrown when <paramref name=\"culture\"/> is <c>null</c>.</exception>");
+            builder.AppendLine("    public static bool IsCultureSupported(CultureInfo culture)");
+            builder.AppendLine("    {");
+            builder.AppendLine("        if (culture is null)");
+            builder.AppendLine("        {");
+            builder.AppendLine("            throw new ArgumentNullException(nameof(culture));");
+            builder.AppendLine("        }");
+            builder.AppendLine();
+            builder.AppendLine("        for (var current = culture; !string.IsNullOrEmpty(current.Name); current = current.Parent)");
+            builder.AppendLine("        {");
+            builder.AppendLine("            if (SupportedLocaleCodes.Contains(current.Name))");
+            builder.AppendLine("            {");
+            builder.AppendLine("                return true;");
+            builder.AppendLine("            }");
+            builder.AppendLine("        }");
+            builder.AppendLine();
+            builder.AppendLine("        return false;");
+            builder.AppendLine("    }");
+            builder.AppendLine();
+            builder.AppendLine("    static readonly HashSet<string> SupportedLocaleCodes = new(StringComparer.OrdinalIgnoreCase)");
+            builder.AppendLine("    {");
+
+            foreach (var locale in locales.OrderBy(static locale => locale.LocaleCode, StringComparer.Ordinal))
+            {
+                builder.Append("        \"");
+                builder.Append(locale.LocaleCode);
+                builder.AppendLine("\",");
+            }
+
+            builder.AppendLine("    };");
+            builder.AppendLine("}");
+
+            context.AddSource("Configurator.SupportedCultures.g.cs", SourceText.From(builder.ToString(), Encoding.UTF8));
         }
 
         void EmitNumberFormattingOverrides(SourceProductionContext context)

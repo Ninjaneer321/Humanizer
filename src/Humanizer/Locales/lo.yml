@@ -1,6 +1,21 @@
 locale: 'lo'
 
 surfaces:
+  inflection:
+    cardinalRule: 'Other'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'lo grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'ແລະ'
@@ -196,6 +211,50 @@ surfaces:
         forms:
           default: 'ເທຣາໄບຕ໌'
         symbol: 'TB'
+      decimalKilobyte:
+        forms:
+          default: 'ກິໂລໄບຕ໌'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms:
+          default: 'ເມກະໄບຕ໌'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms:
+          default: 'ກິກະໄບຕ໌'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms:
+          default: 'ເທຣາໄບຕ໌'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms:
+          default: 'ເພຕາໄບຕ໌'
+        symbol: 'PB'
+      decimalExabyte:
+        forms:
+          default: 'ເອັກຊາໄບຕ໌'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms:
+          default: 'ກິບິໄບຕ໌'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms:
+          default: 'ເມບິໄບຕ໌'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms:
+          default: 'ຈິບິໄບຕ໌'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms:
+          default: 'ເຕບິໄບຕ໌'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms:
+          default: 'ເພບິໄບຕ໌'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'ມິນລິວິນາທີ'
@@ -370,6 +429,7 @@ surfaces:
           defaultPrefix: 'ທີ'
           defaultSuffix: ''
     parse:
+      decimalMarker: 'ຈຸດ'
       engine: 'token-map'
       normalizationProfile: 'LowercaseRemovePeriods'
       allowInvariantIntegerInput: true

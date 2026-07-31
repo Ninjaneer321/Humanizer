@@ -10,6 +10,8 @@ public partial class HumanizerSourceGeneratorTests
         const string parentLocale = """
 locale: 'zz-parent'
 surfaces:
+  durationCases:
+    classification: 'not-applicable'
   list:
     engine: 'conjunction'
     pairTemplate: '{0} and {1}'
@@ -56,6 +58,12 @@ surfaces:
         - 'seventy'
         - 'eighty'
         - 'ninety'
+      scales:
+        -
+          value: 1000
+          singular: 'thousand'
+          plural: 'thousand'
+          omitOne: true
 """;
 
         var runResult = RunGenerator(
@@ -108,6 +116,8 @@ surfaces:
         const string locale = """
 locale: 'zz-scale'
 surfaces:
+  durationCases:
+    classification: 'not-applicable'
   number:
     words:
       engine: 'scale-leading-compound'
@@ -270,5 +280,181 @@ surfaces:
             .ToArray();
 
         Assert.Contains(messages, message => message.Contains("must match file locale 'zz-file'", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void InflectionProfilesInheritWithinTheSameLanguage()
+    {
+        const string parentLocale = """
+locale: 'aa'
+surfaces:
+  durationCases:
+    classification: 'not-applicable'
+  inflection:
+    cardinalRule: 'EnglishLike'
+""";
+        const string regionalLocale = """
+locale: 'aa-ZZ'
+variantOf: 'aa'
+""";
+        var inheritedRun = RunGenerator(
+            new InMemoryAdditionalText("src/Humanizer/Locales/aa.yml", parentLocale),
+            new InMemoryAdditionalText("src/Humanizer/Locales/aa-ZZ.yml", regionalLocale));
+
+        Assert.Empty(inheritedRun.Diagnostics);
+        var source = GetGeneratedSource(inheritedRun, "LocalizedInflectionCatalog.g.cs");
+        Assert.Contains("[\"aa\"]", source, StringComparison.Ordinal);
+        Assert.Contains("[\"aa-ZZ\"]", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SyntheticInflectionSupportsCrLfLocaleText()
+    {
+        const string locale = """
+locale: 'zz'
+surfaces:
+  durationCases:
+    classification: 'not-applicable'
+  list:
+    engine: 'conjunction'
+    value: 'and'
+""";
+
+        var runResult = RunGenerator(
+            new InMemoryAdditionalText(
+                "src/Humanizer/Locales/zz.yml",
+                locale.Replace("\n", "\r\n", StringComparison.Ordinal)));
+
+        Assert.Empty(runResult.Diagnostics);
+        var source = GetGeneratedSource(runResult, "LocalizedInflectionCatalog.g.cs");
+        Assert.Contains("[\"zz\"]", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DurationCasesRequireEveryRootToClassifyTheSurface()
+    {
+        const string locale = """
+locale: 'zz'
+surfaces:
+  inflection:
+    cardinalRule: 'Other'
+""";
+
+        var runResult = RunGenerator(
+            new InMemoryAdditionalText("src/Humanizer/Locales/zz.yml", locale));
+
+        Assert.Contains(
+            runResult.Diagnostics,
+            static diagnostic => diagnostic.Id == "HSG003" &&
+                diagnostic.GetMessage().Contains(
+                    "must classify the durationCases surface",
+                    StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            runResult.GeneratedTrees,
+            static tree => tree.FilePath.EndsWith(
+                "LocaleDurationCaseTableCatalog.g.cs",
+                StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void DurationCaseTablesCarryTheEffectiveFormatterNumberDetector()
+    {
+        var source = GetGeneratedSource("LocaleDurationCaseTableCatalog.g.cs");
+        var hrStart = source.IndexOf("static class Locale_hr_cache", StringComparison.Ordinal);
+        var huStart = source.IndexOf("static LocaleDurationCaseTable Locale_hu", hrStart, StringComparison.Ordinal);
+
+        Assert.True(hrStart >= 0);
+        Assert.True(huStart > hrStart);
+        Assert.Contains(
+            "FormatterNumberDetectorKind.SouthSlavic",
+            source[hrStart..huStart],
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DurationCaseTablesPreserveRequiredNamedFormsMatchingDefault()
+    {
+        var source = GetGeneratedSource("LocaleDurationCaseTableCatalog.g.cs");
+        var bsStart = source.IndexOf("static class Locale_bs_cache", StringComparison.Ordinal);
+        var caStart = source.IndexOf("static LocaleDurationCaseTable Locale_ca", bsStart, StringComparison.Ordinal);
+
+        Assert.True(bsStart >= 0);
+        Assert.True(caStart > bsStart);
+        Assert.Contains(
+            "new LocalizedPhraseForms(\"dana\", null, \"dan\", null, \"dana\"",
+            source[bsStart..caStart],
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void InflectionProfilesRequireEveryRootOnceTheFeatureIsEnabled()
+    {
+        const string enabledLocale = """
+locale: 'aa'
+surfaces:
+  durationCases:
+    classification: 'not-applicable'
+  inflection:
+    cardinalRule: 'EnglishLike'
+""";
+        const string missingLocale = """
+locale: 'zz'
+surfaces:
+  durationCases:
+    classification: 'not-applicable'
+  list:
+    engine: 'conjunction'
+    value: 'and'
+""";
+
+        var runResult = RunGenerator(
+            new InMemoryAdditionalText("src/Humanizer/Locales/aa.yml", enabledLocale),
+            new InMemoryAdditionalText(
+                "src/Humanizer/Locales/zz.yml",
+                missingLocale,
+                addDefaultInflection: false));
+
+        Assert.Contains(
+            runResult.Diagnostics,
+            static diagnostic => diagnostic.Id == "HSG003" &&
+                diagnostic.GetMessage().Contains(
+                    "Every root or cross-language locale profile must author surfaces.inflection explicitly.",
+                    StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void InflectionProfilesEmitEuropeanPortugueseCardinalOverride()
+    {
+        var runResult = RunGenerator();
+
+        Assert.Empty(runResult.Diagnostics);
+        var source = GetGeneratedSource(runResult, "LocalizedInflectionCatalog.g.cs");
+        Assert.Contains("[\"pt-PT\"]", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "[\"pt-PT\"] = CardinalPluralRuleKind.CatalanItalian",
+            source,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void InflectionProfilesRejectRemovedLexiconProperties()
+    {
+        const string locale = """
+locale: 'zz'
+surfaces:
+  durationCases:
+    classification: 'not-applicable'
+  inflection:
+    cardinalRule: 'EnglishLike'
+    disposition: 'selector-only'
+""";
+
+        var runResult = RunGenerator(
+            new InMemoryAdditionalText("src/Humanizer/Locales/zz.yml", locale));
+
+        Assert.Contains(
+            runResult.Diagnostics,
+            static diagnostic => diagnostic.Id == "HSG003" &&
+                diagnostic.GetMessage().Contains("unsupported property 'disposition'", StringComparison.Ordinal));
     }
 }

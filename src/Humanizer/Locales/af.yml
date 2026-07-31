@@ -1,6 +1,21 @@
 locale: 'af'
 
 surfaces:
+  inflection:
+    cardinalRule: 'One'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'af grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'en'
@@ -198,6 +213,61 @@ surfaces:
         forms:
           default: 'terabyte'
         symbol: 'TB'
+      decimalKilobyte:
+        forms:
+          default: 'kilogrepe'
+          singular: 'kilogreep'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms:
+          default: 'megagrepe'
+          singular: 'megagreep'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms:
+          default: 'gigagrepe'
+          singular: 'gigagreep'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms:
+          default: 'teragrepe'
+          singular: 'teragreep'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms:
+          default: 'petagrepe'
+          singular: 'petagreep'
+        symbol: 'PB'
+      decimalExabyte:
+        forms:
+          default: 'eksagrepe'
+          singular: 'eksagreep'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms:
+          default: 'kibigrepe'
+          singular: 'kibigreep'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms:
+          default: 'mebigrepe'
+          singular: 'mebigreep'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms:
+          default: 'gibigrepe'
+          singular: 'gibigreep'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms:
+          default: 'tebigrepe'
+          singular: 'tebigreep'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms:
+          default: 'pebigrepe'
+          singular: 'pebigreep'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'ms'
@@ -326,6 +396,7 @@ surfaces:
       leadingOnePreservePrefix: 'een en '
 
     parse:
+      decimalMarker: 'komma'
       engine: 'token-map'
       normalizationProfile: 'LowercaseRemovePeriods'
       cardinalMap:

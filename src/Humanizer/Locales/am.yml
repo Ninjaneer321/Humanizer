@@ -1,6 +1,64 @@
 locale: 'am'
 
 surfaces:
+  inflection:
+    cardinalRule: 'AmharicLike'
+  durationCases:
+    classification: 'distinct'
+    citationCase: 'nominative'
+    inventory:
+      - 'nominative'
+      - 'accusative'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/main/am.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'long duration-unit case patterns'
+        credit: 'Unicode CLDR contributors'
+    cases:
+      nominative:
+        authored: 'base-duration'
+        provenance:
+          - 'cldr48'
+      accusative:
+        authored:
+          units:
+            millisecond:
+              sameRenderedAs: 'nominative'
+              provenance:
+                - 'cldr48'
+            second:
+              sameRenderedAs: 'nominative'
+              provenance:
+                - 'cldr48'
+            minute:
+              sameRenderedAs: 'nominative'
+              provenance:
+                - 'cldr48'
+            hour:
+              sameRenderedAs: 'nominative'
+              provenance:
+                - 'cldr48'
+            day:
+              sameRenderedAs: 'nominative'
+              provenance:
+                - 'cldr48'
+            week:
+              sameRenderedAs: 'nominative'
+              provenance:
+                - 'cldr48'
+            month:
+              sameRenderedAs: 'nominative'
+              provenance:
+                - 'cldr48'
+            year:
+              sameRenderedAs: 'nominative'
+              provenance:
+                - 'cldr48'
+        provenance:
+          - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'እና'
@@ -227,6 +285,61 @@ surfaces:
           singular: 'ቴራባይት'
           default: 'ቴራባይቶች'
         symbol: 'TB'
+      decimalKilobyte:
+        forms:
+          singular: 'ኪሎባይት'
+          default: 'ኪሎባይቶች'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms:
+          singular: 'ሜጋባይት'
+          default: 'ሜጋባይቶች'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms:
+          singular: 'ጊጋባይት'
+          default: 'ጊጋባይቶች'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms:
+          singular: 'ቴራባይት'
+          default: 'ቴራባይቶች'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms:
+          singular: 'ፔታ ባይት'
+          default: 'ፔታ ባይቶች'
+        symbol: 'PB'
+      decimalExabyte:
+        forms:
+          singular: 'ኤክሳ ባይት'
+          default: 'ኤክሳ ባይቶች'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms:
+          singular: 'ኪቢባይት'
+          default: 'ኪቢባይቶች'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms:
+          singular: 'ሜቢባይት'
+          default: 'ሜቢባይቶች'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms:
+          singular: 'ጊቢባይት'
+          default: 'ጊቢባይቶች'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms:
+          singular: 'ቴቢባይት'
+          default: 'ቴቢባይቶች'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms:
+          singular: 'ፔቢባይት'
+          default: 'ፔቢባይቶች'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'ሚሊሰከንድ'
@@ -349,6 +462,7 @@ surfaces:
         2: 'ጥንድ'
         3: 'ሶስትዮሽ'
     parse:
+      decimalMarker: 'ነጥብ'
       engine: 'token-map'
       normalizationProfile: 'LowercaseRemovePeriods'
       cardinalMap:

@@ -1,6 +1,23 @@
 locale: 'pt'
 
 surfaces:
+  inflection:
+    cardinalRule: 'Portuguese'
+    regionalRules:
+      pt-PT: 'CatalanItalian'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'pt grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'e'
@@ -218,6 +235,50 @@ surfaces:
         forms:
           default: 'terabyte'
         symbol: 'TB'
+      decimalKilobyte:
+        forms:
+          default: 'kilobyte'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms:
+          default: 'megabyte'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms:
+          default: 'gigabyte'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms:
+          default: 'terabyte'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms:
+          default: 'petabyte'
+        symbol: 'PB'
+      decimalExabyte:
+        forms:
+          default: 'exabyte'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms:
+          default: 'kibibyte'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms:
+          default: 'mebibyte'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms:
+          default: 'gibibyte'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms:
+          default: 'tebibyte'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms:
+          default: 'pebibyte'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'ms'
@@ -247,6 +308,32 @@ surfaces:
         millionSingularWord: 'milhão'
         millionPluralWord: 'milhões'
         billionStrategy: 'thousand-millions'
+        scales:
+          -
+            value: 1000000000000000000
+            singular: 'um trilião'
+            plural: 'triliões'
+            omitOne: true
+          -
+            value: 1000000000000000
+            singular: 'mil biliões'
+            plural: 'mil biliões'
+            omitOne: true
+          -
+            value: 1000000000000
+            singular: 'um bilião'
+            plural: 'biliões'
+            omitOne: true
+          -
+            value: 1000000000
+            singular: 'mil milhões'
+            plural: 'mil milhões'
+            omitOne: true
+          -
+            value: 1000000
+            singular: 'um milhão'
+            plural: 'milhões'
+            omitOne: true
         unitsMap:
           - 'zero'
           - 'um'
@@ -330,6 +417,7 @@ surfaces:
           - 'noningentésimo'
 
     parse:
+      decimalMarker: 'vírgula'
       engine: 'token-map'
       normalizationProfile: 'LowercaseRemovePeriods'
       cardinalMap:

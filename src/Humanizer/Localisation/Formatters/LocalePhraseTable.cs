@@ -11,18 +11,22 @@ readonly record struct PhraseTemplate(string? Name, string Template);
 
 readonly record struct LocalizedPhraseForms(
     string Default,
+    string? Zero = null,
     string? Singular = null,
     string? Dual = null,
     string? Paucal = null,
-    string? Plural = null)
+    string? Plural = null,
+    string? Many = null)
 {
     public string Resolve(FormatterNumberForm form) =>
         form switch
         {
+            FormatterNumberForm.Zero => Zero ?? Default,
             FormatterNumberForm.Singular => Singular ?? Default,
             FormatterNumberForm.Dual => Dual ?? Default,
             FormatterNumberForm.Paucal => Paucal ?? Default,
             FormatterNumberForm.Plural => Plural ?? Default,
+            FormatterNumberForm.Many => Many ?? Default,
             _ => Default
         };
 }
@@ -53,6 +57,7 @@ readonly record struct LocalizedUnitPhrase(
 
 sealed class LocalePhraseTable(
     string? dateNow,
+    string? dateToday,
     string? dateNever,
     string? timeSpanZero,
     string? timeSpanAge,
@@ -69,6 +74,7 @@ sealed class LocalePhraseTable(
     readonly LocalizedUnitPhrase?[] timeUnits = timeUnits;
 
     public string? DateNow { get; } = dateNow;
+    public string? DateToday { get; } = dateToday;
     public string? DateNever { get; } = dateNever;
     public string? TimeSpanZero { get; } = timeSpanZero;
     public string? TimeSpanAge { get; } = timeSpanAge;

@@ -1,6 +1,21 @@
 locale: 'lb'
 
 surfaces:
+  inflection:
+    cardinalRule: 'One'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'lb grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'an'
@@ -227,6 +242,50 @@ surfaces:
         forms:
           default: 'Terabyte'
         symbol: 'TB'
+      decimalKilobyte:
+        forms:
+          default: 'Kilobyte'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms:
+          default: 'Megabyte'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms:
+          default: 'Gigabyte'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms:
+          default: 'Terabyte'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms:
+          default: 'Petabyte'
+        symbol: 'PB'
+      decimalExabyte:
+        forms:
+          default: 'Exabyte'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms:
+          default: 'Kibibyte'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms:
+          default: 'Mebibyte'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms:
+          default: 'Gibibyte'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms:
+          default: 'Tebibyte'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms:
+          default: 'Pebibyte'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'ms'
@@ -416,6 +475,7 @@ surfaces:
       groupSeparator: '.'
 
     parse:
+      decimalMarker: 'Komma'
       engine: 'inverted-tens'
       cardinalMap:
         'null': 0

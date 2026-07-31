@@ -72,8 +72,8 @@ public sealed partial class HumanizerSourceGenerator
 
         static string? CreateTimeOnlyToClockNotation(string profile) =>
             profile == "default"
-                ? "TimeOnlyToClockNotationProfileCatalog.Resolve(" + Quote("en") + ")"
-                : "TimeOnlyToClockNotationProfileCatalog.Resolve(" + Quote(profile) + ")";
+                ? "TimeOnlyToClockNotationProfileCatalog.Resolve(" + Quote("en") + ", culture)"
+                : "TimeOnlyToClockNotationProfileCatalog.Resolve(" + Quote(profile) + ", culture)";
 
         static string? CreateWordsToNumber(string profile, string? argument) =>
             profile switch
@@ -209,6 +209,28 @@ public sealed partial class HumanizerSourceGenerator
         element.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String
             ? property.GetString()
             : null;
+
+    static string? GetExplicitDurationCaseNumberDetector(ResolvedLocaleDefinition locale)
+    {
+        if (locale.Formatter is not { } formatter)
+        {
+            return null;
+        }
+
+        return GetOptionalString(formatter.ProfileRoot, "casePluralRule");
+    }
+
+    static string? GetDurationCaseNumberDetector(ResolvedLocaleDefinition locale)
+    {
+        if (locale.Formatter is not { } formatter)
+        {
+            return null;
+        }
+
+        return GetExplicitDurationCaseNumberDetector(locale)
+            ?? GetOptionalString(formatter.ProfileRoot, "pluralRule")
+            ?? GetOptionalString(formatter.ProfileRoot, "resourceKeyDetector");
+    }
 
     static bool GetBoolean(JsonElement element, string propertyName) =>
         element.TryGetProperty(propertyName, out var valueElement) &&
@@ -695,6 +717,51 @@ public sealed partial class HumanizerSourceGenerator
         return builder.ToString();
     }
 
+    static string CreateBillionStrategyCardinalScaleArrayExpression(JsonElement arrayElement)
+    {
+        var builder = new StringBuilder("new BillionStrategyCardinalScale[] { ");
+        var first = true;
+        foreach (var item in arrayElement.EnumerateArray())
+        {
+            if (!first)
+            {
+                builder.Append(", ");
+            }
+
+            builder.Append("new(");
+            builder.Append(GetRequiredInt64(item, "value").ToString(CultureInfo.InvariantCulture));
+            builder.Append("UL, ");
+            builder.Append(QuoteLiteral(GetRequiredString(item, "singular")));
+            builder.Append(", ");
+            builder.Append(QuoteLiteral(GetRequiredString(item, "plural")));
+            if (GetBoolean(item, "omitOne"))
+            {
+                builder.Append(", true");
+            }
+
+            builder.Append(')');
+            first = false;
+        }
+
+        builder.Append(" }");
+        return builder.ToString();
+    }
+
+    static string CreateLegacyBillionStrategyCardinalScaleArrayExpression(JsonElement cardinalElement)
+    {
+        var millionScale = $"new(1000000UL, {QuoteLiteral(GetRequiredString(cardinalElement, "millionSingularWord"))}, {QuoteLiteral(GetRequiredString(cardinalElement, "millionPluralWord"))})";
+        if (GetRequiredString(cardinalElement, "billionStrategy") != "billion-word")
+        {
+            return $"new BillionStrategyCardinalScale[] {{ {millionScale} }}";
+        }
+
+        var billionSingular = GetOptionalString(cardinalElement, "billionSingularWord")
+            ?? throw new InvalidOperationException("Billion-word cardinal strategy requires a singular billion word.");
+        var billionPlural = GetOptionalString(cardinalElement, "billionPluralWord")
+            ?? throw new InvalidOperationException("Billion-word cardinal strategy requires a plural billion word.");
+        return $"new BillionStrategyCardinalScale[] {{ new(1000000000UL, {QuoteLiteral(billionSingular)}, {QuoteLiteral(billionPlural)}), {millionScale} }}";
+    }
+
     static string CreateContractedOneScaleArrayExpression(JsonElement arrayElement)
     {
         if (arrayElement.ValueKind != JsonValueKind.Array)
@@ -899,7 +966,9 @@ public sealed partial class HumanizerSourceGenerator
             RequiredStringValue("paucal"),
             RequiredStringValue("plural"),
             OptionalStringValue("dual"),
-            OptionalStringValue("trialQuadral"));
+            OptionalStringValue("trialQuadral"),
+            OptionalStringValue("ordinal"),
+            OptionalStringValue("ordinalCountPrefixes", "|"));
 
     static string CreateInvertedTensScaleArrayExpression(JsonElement arrayElement)
         => CreateTypedConstructorArrayExpression(
@@ -1068,6 +1137,20 @@ public sealed partial class HumanizerSourceGenerator
             RequiredStringValue("cardinal"),
             RequiredStringValue("ordinal"));
 
+    static string CreateHyphenatedOrdinalScaleArrayExpression(JsonElement arrayElement)
+        => CreateTypedConstructorArrayExpression(
+            "HyphenatedOrdinalNumberToWordsConverter.Scale",
+            arrayElement,
+            element => GetRequiredInt64(element, "value").ToString(CultureInfo.InvariantCulture) + "UL",
+            OptionalStringValue("singularPrefix"),
+            RequiredStringValue("singular"),
+            RequiredStringValue("plural"),
+            RequiredStringValue("ordinalMasculine"),
+            RequiredStringValue("ordinalFeminine"),
+            BooleanValue("omitOne"),
+            BooleanValue("countUsesRequestedGender"),
+            BooleanValue("groupCountByThousands"));
+
     static string CreateDualFormScaleExpression(JsonElement element) =>
         CreateTargetTypedConstructorExpression(
             element,
@@ -1076,11 +1159,22 @@ public sealed partial class HumanizerSourceGenerator
             RequiredStringValue("plural"),
             BooleanValue("usePrefixMapForLowerDigits"));
 
+    static string CreateMacedonianScaleArrayExpression(JsonElement arrayElement)
+        => CreateTypedConstructorArrayExpression(
+            "MacedonianScale",
+            arrayElement,
+            RequiredInt64Value("value", "UL"),
+            RequiredEnumValue("gender", "GrammaticalGender"),
+            RequiredStringValue("singular"),
+            RequiredStringValue("plural"),
+            RequiredStringValue("ordinalStem"),
+            BooleanValue("omitOne"));
+
     static string CreateTriadScaleArrayExpression(JsonElement arrayElement)
         => CreateTypedConstructorArrayExpression(
             "TriadScaleNumberToWordsConverter.TriadScale",
             arrayElement,
-            element => checked((int)GetRequiredInt64(element, "value")).ToString(CultureInfo.InvariantCulture),
+            element => GetRequiredInt64(element, "value").ToString(CultureInfo.InvariantCulture) + "UL",
             RequiredStringValue("singular"),
             RequiredStringValue("plural"),
             OptionalStringValue("countToScaleJoiner"),
@@ -1095,6 +1189,7 @@ public sealed partial class HumanizerSourceGenerator
         => CreateTypedConstructorArrayExpression(
             "GenderedScaleOrdinalNumberToWordsConverter.Scale",
             arrayElement,
+            element => GetRequiredInt64(element, "value").ToString(CultureInfo.InvariantCulture) + "UL",
             RequiredStringValue("singular"),
             RequiredStringValue("plural"),
             RequiredEnumValue("countGender", "GrammaticalGender"));
@@ -1107,6 +1202,16 @@ public sealed partial class HumanizerSourceGenerator
             RequiredStringValue("singularPrefix"),
             RequiredStringValue("singular"),
             RequiredStringValue("plural"));
+
+    static string CreateVariantDecadeScaleArrayExpression(JsonElement arrayElement)
+        => CreateTypedConstructorArrayExpression(
+            "VariantDecadeScale",
+            arrayElement,
+            RequiredInt64Value("value", "UL"),
+            RequiredStringValue("singular"),
+            RequiredStringValue("plural"),
+            BooleanValue("omitOne"),
+            OptionalBooleanValue("pluralizeMultiplier"));
 
     static string CreateWestSlavicScaleFormsExpression(JsonElement objectElement)
     {

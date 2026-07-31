@@ -1,18 +1,24 @@
 namespace Humanizer;
 
 /// <summary>
-/// Container for registered Vocabularies.  At present, only a single vocabulary is supported: Default.
+/// Container for registered vocabularies. At present, only a single vocabulary is supported: Default.
 /// </summary>
 public static class Vocabularies
 {
     static readonly Lazy<Vocabulary> Instance = new(BuildDefault, LazyThreadSafetyMode.PublicationOnly);
 
     /// <summary>
-    /// The default vocabulary used for singular/plural irregularities.
-    /// Rules can be added to this vocabulary and will be picked up by called to Singularize() and Pluralize().
+    /// The default vocabulary used for singular/plural irregularities and custom acronym casing.
+    /// Rules and acronyms added to this vocabulary are used by Singularize(), Pluralize(), and Humanize().
     /// At this time, multiple vocabularies and removing existing rules are not supported.
     /// </summary>
     public static Vocabulary Default => Instance.Value;
+
+    internal static string ApplyAcronyms(string input) =>
+        Instance.IsValueCreated ? Instance.Value.ApplyAcronyms(input) : input;
+
+    internal static string NormalizeAcronyms(string input) =>
+        Instance.IsValueCreated ? Instance.Value.NormalizeAcronyms(input) : input;
 
     static Vocabulary BuildDefault()
     {
@@ -26,7 +32,8 @@ public static class Vocabularies
         _default.AddPlural("(buffal|tomat|volcan|ech|embarg|her|mosquit|potat|torped|vet)o$", "$1oes");
         _default.AddPlural("([dti])um$", "$1a");
         _default.AddPlural("sis$", "ses");
-        _default.AddPlural("(?:([^f])fe|([lr])f)$", "$1$2ves");
+        _default.AddPlural("(cal|dwar|el|hal|hoo|lea|loa|scar|sel|shel|thie|tur|whar|wol)f$", "$1ves");
+        _default.AddPlural("(kni|li|wi)fe$", "$1ves");
         _default.AddPlural("(hive)$", "$1s");
         _default.AddPlural("([^aeiouy]|qu)y$", "$1ies");
         _default.AddPlural("(x|ch|ss|sh)$", "$1es");
@@ -35,7 +42,6 @@ public static class Vocabularies
         _default.AddPlural("^(ox)$", "$1en");
         _default.AddPlural("(quiz)$", "$1zes");
         _default.AddPlural("(buz|blit|walt)z$", "$1zes");
-        _default.AddPlural("(hoo|lea|loa|thie)f$", "$1ves");
         _default.AddPlural("(alumn|alg|larv|vertebr)a$", "$1ae");
         _default.AddPlural("(criteri|phenomen)on$", "$1a");
 
@@ -43,10 +49,11 @@ public static class Vocabularies
         _default.AddSingular("(n)ews$", "$1ews");
         _default.AddSingular("([dti])a$", "$1um");
         _default.AddSingular("(analy|ba|diagno|parenthe|progno|synop|the|ellip|empha|neuro|oa|paraly)ses$", "$1sis");
-        _default.AddSingular("([^f])ves$", "$1fe");
+        _default.AddSingular("(.+)ves$", "$1ve");
         _default.AddSingular("(hive)s$", "$1");
         _default.AddSingular("(tive)s$", "$1");
-        _default.AddSingular("([lr]|hoo|lea|loa|thie)ves$", "$1f");
+        _default.AddSingular("(cal|dwar|el|hal|hoo|lea|loa|scar|sel|shel|thie|tur|whar|wol)ves$", "$1f");
+        _default.AddSingular("(li|wi|kni)ves$", "$1fe");
         _default.AddSingular("(^zomb)?([^aeiouy]|qu)ies$", "$2y");
         _default.AddSingular("(s)eries$", "$1eries");
         _default.AddSingular("(m)ovies$", "$1ovie");
@@ -54,7 +61,7 @@ public static class Vocabularies
         _default.AddSingular("(^[m|l])ice$", "$1ouse");
         _default.AddSingular("(?<!^[a-z])(o)es$", "$1");
         _default.AddSingular("(shoe)s$", "$1");
-        _default.AddSingular("(cris|ax|test)es$", "$1is");
+        _default.AddSingular("((?<![a-z])ax|(?-i:(?<=[A-Za-z])Ax)|cris|test)es$", "$1is");
         _default.AddSingular("(octop|vir|alumn|fung|cact|foc|hippopotam|radi|stimul|syllab|nucle)i$", "$1us");
         _default.AddSingular("(alias|bias|iris|status|campus|apparatus|virus|walrus|trellis)es$", "$1");
         _default.AddSingular("^(ox)en", "$1");
@@ -68,6 +75,7 @@ public static class Vocabularies
 
         _default.AddIrregular("person", "people");
         _default.AddIrregular("man", "men");
+        _default.AddSingular("(abdomen|acumen|agnomen|albumen|bitumen|catechumen|cerumen|cognomen|cyclamen|dolmen|duramen|energumen|examen|flamen|flehmen|foramen|germen|gravamen|hegumen|hymen|limen|lumen|nomen|numen|pacmen|praenomen|prenomen|putamen|ramen|regimen|rumen|specimen|stamen|tegmen|tegumen|velamen|yamen|^amen|^omen)$", "$1");
         _default.AddIrregular("human", "humans");
         _default.AddIrregular("child", "children");
         _default.AddIrregular("sex", "sexes");
@@ -82,6 +90,7 @@ public static class Vocabularies
         _default.AddIrregular("zombie", "zombies");
         _default.AddIrregular("personnel", "personnel");
         _default.AddIrregular("cache", "caches");
+        _default.AddIrregular("olive", "olives", matchEnding: false);
         _default.AddIrregular("ex", "exes", matchEnding: false);
         _default.AddIrregular("is", "are", matchEnding: false);
         _default.AddIrregular("was", "were", matchEnding: false);
@@ -97,6 +106,7 @@ public static class Vocabularies
 
         _default.AddUncountable("staff");
         _default.AddUncountable("training");
+        _default.AddUncountable("software");
         _default.AddUncountable("equipment");
         _default.AddUncountable("information");
         _default.AddUncountable("corn");
@@ -146,6 +156,7 @@ public static class Vocabularies
         //Fix 1132
         _default.AddUncountable("metadata");
 
+        _default.MarkRulesAsBuiltIn();
         return _default;
     }
 }

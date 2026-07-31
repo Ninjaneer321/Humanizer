@@ -31,23 +31,19 @@ class VariantDecadeNumberToWordsConverter(VariantDecadeNumberToWordsProfile prof
         }
 
         var parts = new List<string>();
+        var magnitude = GetMagnitude(number);
 
         if (number < 0)
         {
             parts.Add(profile.MinusWord);
-            number = -number;
         }
 
-        // Large-scale traversal remains explicit because the lexical family is stable and the
-        // generated profile only needs to drive the decade behavior rather than the long-scale map.
-        CollectParts(parts, ref number, 1000000000000000000, "trillion");
-        CollectParts(parts, ref number, 1000000000000000, "billiard");
-        CollectParts(parts, ref number, 1000000000000, "billion");
-        CollectParts(parts, ref number, 1000000000, "milliard");
-        CollectParts(parts, ref number, 1000000, "million");
-        CollectThousands(parts, ref number, 1000, "mille");
+        foreach (var scale in profile.Scales)
+        {
+            CollectParts(parts, ref magnitude, scale);
+        }
 
-        CollectPartsUnderAThousand(parts, number, gender, true);
+        CollectPartsUnderAThousand(parts, magnitude, gender, true);
 
         return string.Join(" ", parts);
     }
@@ -104,17 +100,17 @@ class VariantDecadeNumberToWordsConverter(VariantDecadeNumberToWordsProfile prof
     /// <param name="number">The unit value to render.</param>
     /// <param name="gender">The grammatical gender requested for the terminal unit.</param>
     /// <returns>The localized unit word for <paramref name="number"/>.</returns>
-    protected static string GetUnits(long number, GrammaticalGender gender)
+    protected static string GetUnits(ulong number, GrammaticalGender gender)
     {
         if (number == 1 && gender == GrammaticalGender.Feminine)
         {
             return "une";
         }
 
-        return UnitsMap[number];
+        return UnitsMap[(int)number];
     }
 
-    static void CollectHundreds(List<string> parts, ref long number, long d, string form, bool pluralize)
+    static void CollectHundreds(List<string> parts, ref ulong number, ulong d, string form, bool pluralize)
     {
         if (number < d)
         {
@@ -142,32 +138,25 @@ class VariantDecadeNumberToWordsConverter(VariantDecadeNumberToWordsProfile prof
         number %= d;
     }
 
-    // Higher scales stay fully structural in this family. The only special-case long-scale rule is
-    // whether the singular form omits the leading "un", which is handled in the explicit callers.
-    void CollectParts(List<string> parts, ref long number, long d, string form)
+    void CollectParts(List<string> parts, ref ulong number, VariantDecadeScale scale)
     {
-        if (number < d)
+        if (number < scale.Value)
         {
             return;
         }
 
-        var result = number / d;
+        var result = number / scale.Value;
 
-        CollectPartsUnderAThousand(parts, result, GrammaticalGender.Masculine, true);
-
-        if (result == 1)
+        if (!(scale.OmitOne && result == 1))
         {
-            parts.Add(form);
-        }
-        else
-        {
-            parts.Add(form + "s");
+            CollectPartsUnderAThousand(parts, result, GrammaticalGender.Masculine, scale.PluralizeMultiplier);
         }
 
-        number %= d;
+        parts.Add(result == 1 ? scale.Singular : scale.Plural);
+        number %= scale.Value;
     }
 
-    void CollectPartsUnderAThousand(List<string> parts, long number, GrammaticalGender gender, bool pluralize)
+    void CollectPartsUnderAThousand(List<string> parts, ulong number, GrammaticalGender gender, bool pluralize)
     {
         CollectHundreds(parts, ref number, 100, "cent", pluralize);
 
@@ -177,29 +166,11 @@ class VariantDecadeNumberToWordsConverter(VariantDecadeNumberToWordsProfile prof
         }
     }
 
-    void CollectThousands(List<string> parts, ref long number, int d, string form)
-    {
-        if (number < d)
-        {
-            return;
-        }
-
-        var result = number / d;
-        if (result > 1)
-        {
-            CollectPartsUnderAThousand(parts, result, GrammaticalGender.Masculine, false);
-        }
-
-        parts.Add(form);
-
-        number %= d;
-    }
-
     // Under one hundred is where the family divergence lives, so the strategy enums only apply
     // inside this method and everything above it stays generic.
     // Under one hundred is the whole point of this engine: it is where septante/soixante-dix and
     // nonante/quatre-vingt-dix style variants actually diverge.
-    void CollectPartsUnderAHundred(List<string> parts, ref long number, GrammaticalGender gender, bool pluralize)
+    void CollectPartsUnderAHundred(List<string> parts, ref ulong number, GrammaticalGender gender, bool pluralize)
     {
         if (number < 20)
         {
@@ -225,7 +196,7 @@ class VariantDecadeNumberToWordsConverter(VariantDecadeNumberToWordsProfile prof
 
     // Exact 80-pluralization and "et un" join behavior now come from generated decade metadata
     // instead of locale-specific converter classes.
-    void AppendStandardTens(List<string> parts, long number, GrammaticalGender gender, bool pluralize)
+    void AppendStandardTens(List<string> parts, ulong number, GrammaticalGender gender, bool pluralize)
     {
         var units = number % 10;
         var tensIndex = (int)(number / 10);
@@ -249,6 +220,9 @@ class VariantDecadeNumberToWordsConverter(VariantDecadeNumberToWordsProfile prof
             parts.Add($"{tens}-{GetUnits(units, gender)}");
         }
     }
+
+    static ulong GetMagnitude(long number) =>
+        number >= 0 ? (ulong)number : unchecked((ulong)(-(number + 1)) + 1);
 
 }
 
@@ -300,7 +274,8 @@ sealed class VariantDecadeNumberToWordsProfile(
     string? specialSeventyOneWord,
     bool pluralizeExactEighty,
     FrozenSet<int> tensUsingEtWhenUnitIsOne,
-    string[] tensMap)
+    string[] tensMap,
+    VariantDecadeScale[] scales)
 {
     /// <summary>Gets the word used to prefix negative values.</summary>
     public string MinusWord { get; } = minusWord;
@@ -318,4 +293,13 @@ sealed class VariantDecadeNumberToWordsProfile(
     public FrozenSet<int> TensUsingEtWhenUnitIsOne { get; } = tensUsingEtWhenUnitIsOne;
     /// <summary>Gets the tens lexicon.</summary>
     public string[] TensMap { get; } = tensMap;
+    /// <summary>Gets the descending scale rows.</summary>
+    public VariantDecadeScale[] Scales { get; } = scales;
 }
+
+readonly record struct VariantDecadeScale(
+    ulong Value,
+    string Singular,
+    string Plural,
+    bool OmitOne = false,
+    bool PluralizeMultiplier = true);

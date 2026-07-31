@@ -11,7 +11,7 @@ on:
 
   push:
     paths:
-      - '.github/workflows/benchmarks-baseline-vs-current.yml'        
+      - '.github/workflows/benchmarks-baseline-vs-current.yml'
   pull_request:
     paths:
       - '.github/workflows/benchmarks-baseline-vs-current.yml'
@@ -34,25 +34,24 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup .NET 8
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '8.0.x'
 
       - name: Setup .NET 10
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
       - name: Setup .NET 11 preview
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '11.0.x'
-          dotnet-quality: preview
+          dotnet-version: '11.0.100-preview.6.26359.118'
 
       - name: Display run information
         run: |
@@ -93,14 +92,14 @@ jobs:
           done < <(find "$out" -type f -name '*.md')
       
       - name: Upload JSON Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: humanizer-bdn-${{ matrix.kind }}-${{ matrix.targetFramework }}-json
           path: artifacts/${{ matrix.kind }}/${{ matrix.targetFramework }}/**/*.json
           retention-days: 7
       
       - name: Upload All Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: humanizer-bdn-${{ matrix.kind }}-${{ matrix.targetFramework }}-all
           path: artifacts/${{ matrix.kind }}/${{ matrix.targetFramework }}/
@@ -119,37 +118,36 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Download Baseline JSON
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: humanizer-bdn-baseline-${{ matrix.targetFramework }}-json
           path: baseline
       
       - name: Download Current JSON
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: humanizer-bdn-current-${{ matrix.targetFramework }}-json
           path: current
       
       - name: Setup .NET 8
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '8.0.x'
 
       - name: Setup .NET 10
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
       - name: Setup .NET 11 preview
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '11.0.x'
-          dotnet-quality: preview
+          dotnet-version: '11.0.100-preview.6.26359.118'
       
       - name: Clone and Build ResultsComparer
         run: |
@@ -167,6 +165,7 @@ jobs:
 
           dotnet restore "$RUNNER_TEMP/performance/src/tools/ResultsComparer/ResultsComparer.csproj" \
             -p:PERFLAB_TARGET_FRAMEWORKS=net10.0 \
+            -p:WarningsNotAsErrors=NU1902 \
             --configfile "$RUNNER_TEMP/performance-nuget.config"
       
       - name: Locate Benchmark Results
@@ -199,7 +198,7 @@ jobs:
 
           echo "Comparing results for $tfm..."
           compare_exit=0
-          dotnet run --no-restore --project "$RUNNER_TEMP/performance/src/tools/ResultsComparer/ResultsComparer.csproj" -c Release -p:PERFLAB_TARGET_FRAMEWORKS=net10.0 -f net10.0 --base "${{ steps.results.outputs.baseline_results }}" --diff "${{ steps.results.outputs.current_results }}" --threshold "5%" > "comparisons/diff-$tfm.md" || compare_exit=$?
+          dotnet run --no-restore --project "$RUNNER_TEMP/performance/src/tools/ResultsComparer/ResultsComparer.csproj" -c Release -p:PERFLAB_TARGET_FRAMEWORKS=net10.0 -p:WarningsNotAsErrors=NU1902 -f net10.0 --base "${{ steps.results.outputs.baseline_results }}" --diff "${{ steps.results.outputs.current_results }}" --threshold "5%" > "comparisons/diff-$tfm.md" || compare_exit=$?
 
           if [ ! -s "comparisons/diff-$tfm.md" ] || grep -q "The build failed" "comparisons/diff-$tfm.md"; then
             cat "comparisons/diff-$tfm.md" >&2 || true
@@ -238,7 +237,7 @@ jobs:
           fi
       
       - name: Upload Comparison Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: humanizer-bdn-comparison-${{ matrix.targetFramework }}

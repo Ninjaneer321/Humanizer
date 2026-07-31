@@ -1,6 +1,21 @@
 locale: 'ko'
 
 surfaces:
+  inflection:
+    cardinalRule: 'Other'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'ko grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: '및'
@@ -210,6 +225,50 @@ surfaces:
         forms:
           default: '테라바이트'
         symbol: 'TB'
+      decimalKilobyte:
+        forms:
+          default: '킬로바이트'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms:
+          default: '메가바이트'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms:
+          default: '기가바이트'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms:
+          default: '테라바이트'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms:
+          default: '페타바이트'
+        symbol: 'PB'
+      decimalExabyte:
+        forms:
+          default: '엑사바이트'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms:
+          default: '키비바이트'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms:
+          default: '메비바이트'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms:
+          default: '기비바이트'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms:
+          default: '테비바이트'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms:
+          default: '페비바이트'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: '밀리초'
@@ -295,6 +354,7 @@ surfaces:
         19: '열아홉째'
 
     parse:
+      decimalMarker: '점'
       engine: 'east-asian-positional'
       negativePrefixes:
         - '마이너스'

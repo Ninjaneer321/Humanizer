@@ -1,6 +1,21 @@
 locale: 'zu-ZA'
 
 surfaces:
+  inflection:
+    cardinalRule: 'AmharicLike'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'zu-ZA grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'na'
@@ -211,6 +226,61 @@ surfaces:
           default: 'ama-terabytes'
           singular: 'i-terabyte'
         symbol: 'TB'
+      decimalKilobyte:
+        forms:
+          default: 'ama-kilobytes'
+          singular: 'i-kilobyte'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms:
+          default: 'ama-megabytes'
+          singular: 'i-megabyte'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms:
+          default: 'ama-gigabytes'
+          singular: 'i-gigabyte'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms:
+          default: 'ama-terabytes'
+          singular: 'i-terabyte'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms:
+          default: 'ama-petabytes'
+          singular: 'i-petabyte'
+        symbol: 'PB'
+      decimalExabyte:
+        forms:
+          default: 'ama-exabytes'
+          singular: 'i-exabyte'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms:
+          default: 'ama-kibibytes'
+          singular: 'i-kibibyte'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms:
+          default: 'ama-mebibytes'
+          singular: 'i-mebibyte'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms:
+          default: 'ama-gibibytes'
+          singular: 'i-gibibyte'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms:
+          default: 'ama-tebibytes'
+          singular: 'i-tebibyte'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms:
+          default: 'ama-pebibytes'
+          singular: 'i-pebibyte'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'imilisekhondi'
@@ -334,6 +404,7 @@ surfaces:
           ordinalName: 'inkulungwane'
 
     parse:
+      decimalMarker: 'idesimalikhoma'
       engine: 'token-map'
       normalizationProfile: 'CollapseWhitespace'
       useHundredMultiplier: true

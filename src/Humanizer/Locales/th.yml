@@ -1,6 +1,21 @@
 locale: 'th'
 
 surfaces:
+  inflection:
+    cardinalRule: 'Other'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'th grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'และ'
@@ -194,6 +209,61 @@ surfaces:
         forms:
           default: 'เทราไบต์'
         symbol: 'TB'
+      decimalKilobyte:
+        forms:
+          default: 'กิโลไบต์'
+          singular: 'กิโลไบต์'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms:
+          default: 'เมกะไบต์'
+          singular: 'เมกะไบต์'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms:
+          default: 'กิกะไบต์'
+          singular: 'กิกะไบต์'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms:
+          default: 'เทราไบต์'
+          singular: 'เทราไบต์'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms:
+          default: 'เพตะไบต์'
+          singular: 'เพตะไบต์'
+        symbol: 'PB'
+      decimalExabyte:
+        forms:
+          default: 'เอกซะไบต์'
+          singular: 'เอกซะไบต์'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms:
+          default: 'คิบิไบต์'
+          singular: 'คิบิไบต์'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms:
+          default: 'เมบิไบต์'
+          singular: 'เมบิไบต์'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms:
+          default: 'กิบิไบต์'
+          singular: 'กิบิไบต์'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms:
+          default: 'เทบิไบต์'
+          singular: 'เทบิไบต์'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms:
+          default: 'เพบิไบต์'
+          singular: 'เพบิไบต์'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'มิลลิวินาที'
@@ -281,6 +351,7 @@ surfaces:
           name: 'ร้อย'
 
     parse:
+      decimalMarker: 'จุด'
       engine: 'east-asian-positional'
       negativePrefixes:
         - 'ลบ'

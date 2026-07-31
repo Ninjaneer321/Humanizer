@@ -17,6 +17,27 @@ public class BitFieldEnumHumanizeTests
     }
 
     [Fact]
+    public void CasingPreservesMetadataInCompositeBitFieldEnum()
+    {
+        var composite = MixedMetadataBitFieldEnumUnderTest.AuthoredMetadata | MixedMetadataBitFieldEnumUnderTest.NameDerived;
+
+        Assert.Equal("SpaceX and Name Derived", composite.Humanize(LetterCasing.Title));
+    }
+
+    [Fact]
+    public void HumanizeSourceAppliesToEachCompositeBitFieldValue()
+    {
+        var composite = MixedMetadataBitFieldEnumUnderTest.AuthoredMetadata | MixedMetadataBitFieldEnumUnderTest.NameDerived;
+
+        Assert.Equal(
+            "Authored Metadata and Name Derived",
+            composite.Humanize(LetterCasing.Title, EnumHumanizeSource.EnumName));
+        Assert.Equal(
+            "SpaceX and Name Derived",
+            composite.Humanize(LetterCasing.Title, EnumHumanizeSource.DisplayDescription));
+    }
+
+    [Fact]
     public void CanHumanizeShortSingleWordDescriptionAttribute() =>
         Assert.Equal(BitFlagEnumTestsResources.MemberWithSingleWordDisplayAttribute, ShortBitFieldEnumUnderTest.RED.Humanize());
 

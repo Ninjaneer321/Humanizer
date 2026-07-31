@@ -1,6 +1,21 @@
 locale: 'bg'
 
 surfaces:
+  inflection:
+    cardinalRule: 'One'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'bg grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'и'
@@ -221,6 +236,61 @@ surfaces:
           default: 'терабайта'
           singular: 'терабайт'
         symbol: 'TB'
+      decimalKilobyte:
+        forms:
+          default: 'килобайта'
+          singular: 'килобайт'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms:
+          default: 'мегабайта'
+          singular: 'мегабайт'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms:
+          default: 'гигабайт'
+          plural: 'гигабайта'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms:
+          default: 'терабайта'
+          singular: 'терабайт'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms:
+          default: 'петабайта'
+          singular: 'петабайт'
+        symbol: 'PB'
+      decimalExabyte:
+        forms:
+          default: 'ексабайта'
+          singular: 'ексабайт'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms:
+          default: 'кибибайта'
+          singular: 'кибибайт'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms:
+          default: 'мебибайта'
+          singular: 'мебибайт'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms:
+          default: 'гибибайта'
+          singular: 'гибибайт'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms:
+          default: 'тебибайта'
+          singular: 'тебибайт'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms:
+          default: 'пебибайта'
+          singular: 'пебибайт'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'мс.'
@@ -375,6 +445,7 @@ surfaces:
           ordinalStem: 'хиляд'
 
     parse:
+      decimalMarker: 'цяло и'
       engine: 'token-map'
       normalizationProfile: 'LowercaseReplacePeriodsWithSpaces'
       cardinalMap:

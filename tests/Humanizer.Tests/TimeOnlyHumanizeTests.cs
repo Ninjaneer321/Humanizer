@@ -1,13 +1,13 @@
 #if NET6_0_OR_GREATER
 
+using Humanizer.Tests.Localisation;
+
 [UseCulture("en-US")]
 public class TimeOnlyHumanizeTests
 {
     [Fact]
     public void DefaultStrategy_SameTime()
     {
-        Configurator.TimeOnlyHumanizeStrategy = new DefaultTimeOnlyHumanizeStrategy();
-
         var inputTime = new TimeOnly(13, 07, 05);
         var baseTime = new TimeOnly(13, 07, 05);
 
@@ -20,8 +20,6 @@ public class TimeOnlyHumanizeTests
     [Fact]
     public void DefaultStrategy_HoursApart()
     {
-        Configurator.TimeOnlyHumanizeStrategy = new DefaultTimeOnlyHumanizeStrategy();
-
         var inputTime = new TimeOnly(13, 08, 05);
         var baseTime = new TimeOnly(1, 08, 05);
 
@@ -32,10 +30,54 @@ public class TimeOnlyHumanizeTests
     }
 
     [Fact]
+    public async Task StrategiesAreIsolatedAcrossParallelCultures()
+    {
+        using var strategiesReady = new Barrier(2);
+
+        var defaultResult = Task.Run(() => Humanize(
+            new("en-US"),
+            new("fr"),
+            new DefaultTimeOnlyHumanizeStrategy()));
+        var precisionResult = Task.Run(() => Humanize(
+            new("fr"),
+            new("is"),
+            new PrecisionTimeOnlyHumanizeStrategy(0.5)));
+
+        var results = await Task.WhenAll(defaultResult, precisionResult);
+
+        Assert.Equal("12 hours from now", results[0]);
+        Assert.Equal("demain", results[1]);
+
+        string Humanize(
+            CultureInfo currentCulture,
+            CultureInfo currentUICulture,
+            ITimeOnlyHumanizeStrategy strategy)
+        {
+            var originalCulture = CultureInfo.CurrentCulture;
+            var originalUICulture = CultureInfo.CurrentUICulture;
+
+            try
+            {
+                CultureInfo.CurrentCulture = currentCulture;
+                CultureInfo.CurrentUICulture = currentUICulture;
+                if (!strategiesReady.SignalAndWait(TimeSpan.FromSeconds(30)))
+                {
+                    throw new TimeoutException("Parallel strategies did not synchronize.");
+                }
+
+                return strategy.Humanize(new(13, 08, 05), new(1, 08, 05), null);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = originalCulture;
+                CultureInfo.CurrentUICulture = originalUICulture;
+            }
+        }
+    }
+
+    [Fact]
     public void DefaultStrategy_HoursAgo()
     {
-        Configurator.TimeOnlyHumanizeStrategy = new DefaultTimeOnlyHumanizeStrategy();
-
         var inputTime = new TimeOnly(13, 07, 02);
         var baseTime = new TimeOnly(17, 07, 05);
 
@@ -48,15 +90,25 @@ public class TimeOnlyHumanizeTests
     [Fact]
     public void PrecisionStrategy_NextDay()
     {
-        Configurator.TimeOnlyHumanizeStrategy = new PrecisionTimeOnlyHumanizeStrategy(0.75);
-
         var inputTime = new TimeOnly(18, 10, 49);
         var baseTime = new TimeOnly(13, 07, 04);
 
         const string expectedResult = "5 hours from now";
-        var actualResult = inputTime.Humanize(baseTime);
+        var actualResult = new PrecisionTimeOnlyHumanizeStrategy(0.75)
+            .Humanize(inputTime, baseTime, CultureInfo.CurrentUICulture);
 
         Assert.Equal(expectedResult, actualResult);
+    }
+
+    [Theory]
+    [MemberData(nameof(LocaleRegistrySweepTests.ShippedLocaleRows), MemberType = typeof(LocaleRegistrySweepTests))]
+    public void Humanize_UsesSpecifiedCulture(string localeName)
+    {
+        var culture = new CultureInfo(localeName);
+        var baseTime = new TimeOnly(13, 0);
+        var expected = Configurator.GetFormatter(culture).DateHumanize(TimeUnit.Minute, Tense.Future, 1);
+
+        Assert.Equal(expected, baseTime.AddMinutes(1).Humanize(baseTime, culture: culture));
     }
 
     [Fact]

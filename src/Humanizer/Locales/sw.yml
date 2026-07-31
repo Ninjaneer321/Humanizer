@@ -1,6 +1,21 @@
 locale: 'sw'
 
 surfaces:
+  inflection:
+    cardinalRule: 'EnglishLike'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'sw grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'na'
@@ -205,6 +220,61 @@ surfaces:
         forms:
           default: 'terabaiti'
         symbol: 'TB'
+      decimalKilobyte:
+        forms:
+          default: 'kilobaiti'
+          singular: 'kilobaiti'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms:
+          default: 'megabaiti'
+          singular: 'megabaiti'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms:
+          default: 'gigabaiti'
+          singular: 'gigabaiti'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms:
+          default: 'terabaiti'
+          singular: 'terabaiti'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms:
+          default: 'petabaiti'
+          singular: 'petabaiti'
+        symbol: 'PB'
+      decimalExabyte:
+        forms:
+          default: 'eksabaiti'
+          singular: 'eksabaiti'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms:
+          default: 'kibibaiti'
+          singular: 'kibibaiti'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms:
+          default: 'mebibaiti'
+          singular: 'mebibaiti'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms:
+          default: 'gibibaiti'
+          singular: 'gibibaiti'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms:
+          default: 'tebibaiti'
+          singular: 'tebibaiti'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms:
+          default: 'pebibaiti'
+          singular: 'pebibaiti'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'ms'
@@ -297,6 +367,7 @@ surfaces:
         9: 'tisa'
         10: 'kumi'
     parse:
+      decimalMarker: 'nukta'
       engine: 'scale-leading-compound'
       conjunctionWord: 'na'
       minusWord: 'hasi'

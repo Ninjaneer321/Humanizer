@@ -1,6 +1,21 @@
 locale: 'fil'
 
 surfaces:
+  inflection:
+    cardinalRule: 'Filipino'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'fil grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'at'
@@ -200,6 +215,39 @@ surfaces:
         forms:
           default: 'terabyte'
         symbol: 'TB'
+      decimalKilobyte:
+        forms: 'kilobyte'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms: 'megabyte'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms: 'gigabyte'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms: 'terabyte'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms: 'petabyte'
+        symbol: 'PB'
+      decimalExabyte:
+        forms: 'exabyte'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms: 'kibibyte'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms: 'mebibyte'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms: 'gibibyte'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms: 'tebibyte'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms: 'pebibyte'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'ms'
@@ -325,6 +373,7 @@ surfaces:
           replacement: ' siyam na'
 
     parse:
+      decimalMarker: 'tuldok'
       engine: 'linking-affix'
       cardinalMap:
         sero: 0

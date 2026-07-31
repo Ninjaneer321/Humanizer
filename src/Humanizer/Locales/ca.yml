@@ -1,6 +1,21 @@
 locale: 'ca'
 
 surfaces:
+  inflection:
+    cardinalRule: 'CatalanItalian'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'ca grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'i'
@@ -230,6 +245,39 @@ surfaces:
         forms:
           default: 'terabyte'
         symbol: 'TB'
+      decimalKilobyte:
+        forms: 'kilobyte'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms: 'megabyte'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms: 'gigabyte'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms: 'terabyte'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms: 'petabyte'
+        symbol: 'PB'
+      decimalExabyte:
+        forms: 'exabyte'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms: 'kibibyte'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms: 'mebibyte'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms: 'gibibyte'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms: 'tebibyte'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms: 'pebibyte'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'ms'
@@ -259,17 +307,48 @@ surfaces:
       millionPlural: 'milions'
       masculineCompoundOne: 'u'
       feminineCompoundOne: 'una'
-      masculineOrdinalOne: 'un'
-      feminineOrdinalOne: 'una'
+      masculineScaleCountOne: 'un'
+      masculineOrdinalOne: 'unè'
+      feminineOrdinalOne: 'unena'
       defaultTensJoiner: '-'
       specialTensJoiner: '-i-'
       specialJoinerTensValue: 2
       masculineTensOrdinalSuffix: 'è'
       feminineTensOrdinalSuffix: 'ena'
-      masculineOrdinalAppender: 'n'
       defaultOrdinalAbbreviationMasculine: 'è'
       defaultOrdinalAbbreviationFeminine: 'a'
       tupleFallbackWord: 'vegades'
+      scales:
+        -
+          value: 1000000000000000000
+          singularPrefix: 'un'
+          singular: 'trilió'
+          plural: 'trilions'
+          ordinalMasculine: 'trilionèsim'
+          ordinalFeminine: 'trilionèsima'
+        -
+          value: 1000000000000
+          singularPrefix: 'un'
+          singular: 'bilió'
+          plural: 'bilions'
+          ordinalMasculine: 'bilionèsim'
+          ordinalFeminine: 'bilionèsima'
+        -
+          value: 1000000
+          singularPrefix: 'un'
+          singular: 'milió'
+          plural: 'milions'
+          ordinalMasculine: 'milionèsim'
+          ordinalFeminine: 'milionèsima'
+          groupCountByThousands: true
+        -
+          value: 1000
+          singular: 'mil'
+          plural: 'mil'
+          ordinalMasculine: 'milè'
+          ordinalFeminine: 'milena'
+          omitOne: true
+          countUsesRequestedGender: true
       unitsMasculine:
         1: 'un'
         2: 'dos'
@@ -331,6 +410,26 @@ surfaces:
         7: 'set-centes'
         8: 'vuit-centes'
         9: 'nou-centes'
+      ordinalHundredsMasculine:
+        1: 'centè'
+        2: 'dos-centè'
+        3: 'tres-centè'
+        4: 'quatre-centè'
+        5: 'cinc-centè'
+        6: 'sis-centè'
+        7: 'set-centè'
+        8: 'vuit-centè'
+        9: 'nou-centè'
+      ordinalHundredsFeminine:
+        1: 'centena'
+        2: 'dos-centena'
+        3: 'tres-centena'
+        4: 'quatre-centena'
+        5: 'cinc-centena'
+        6: 'sis-centena'
+        7: 'set-centena'
+        8: 'vuit-centena'
+        9: 'nou-centena'
       ordinalMasculine:
         1: 'primer'
         2: 'segon'
@@ -417,6 +516,7 @@ surfaces:
         '999|Feminine': '999a'
 
     parse:
+      decimalMarker: 'coma'
       engine: 'token-map'
       normalizationProfile: 'LowercaseRemovePeriods'
       cardinalMap:

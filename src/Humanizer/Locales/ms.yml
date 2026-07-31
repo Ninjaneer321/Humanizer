@@ -1,6 +1,21 @@
 locale: 'ms'
 
 surfaces:
+  inflection:
+    cardinalRule: 'Other'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'ms grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'dan'
@@ -202,6 +217,50 @@ surfaces:
         forms:
           default: 'terabait'
         symbol: 'TB'
+      decimalKilobyte:
+        forms:
+          default: 'kilobait'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms:
+          default: 'megabait'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms:
+          default: 'gigabait'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms:
+          default: 'terabait'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms:
+          default: 'petabait'
+        symbol: 'PB'
+      decimalExabyte:
+        forms:
+          default: 'eksabait'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms:
+          default: 'kibibait'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms:
+          default: 'mebibait'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms:
+          default: 'gibibait'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms:
+          default: 'tebibait'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms:
+          default: 'pebibait'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'milisaat'
@@ -280,6 +339,7 @@ surfaces:
           oneWord: 'seribu'
 
     parse:
+      decimalMarker: 'perpuluhan'
       engine: 'contracted-scale'
       minusWord: 'minus'
       cardinalMap:

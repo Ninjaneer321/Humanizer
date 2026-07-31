@@ -3,7 +3,7 @@ namespace Humanizer;
 /// <summary>
 /// Converts numbers to Macedonian words.
 /// </summary>
-class MacedonianNumberToWordsConverter(CultureInfo culture) : GenderedNumberToWordsConverter(GrammaticalGender.Masculine)
+class MacedonianNumberToWordsConverter(CultureInfo culture, MacedonianScale[] scales) : GenderedNumberToWordsConverter(GrammaticalGender.Masculine)
 {
     static readonly string[] MasculineUnits =
     [
@@ -31,16 +31,6 @@ class MacedonianNumberToWordsConverter(CultureInfo culture) : GenderedNumberToWo
     static readonly string[] Hundreds =
     [
         "", "сто", "двесте", "триста", "четиристотини", "петстотини", "шестотини", "седумстотини", "осумстотини", "деветстотини"
-    ];
-
-    static readonly Scale[] Scales =
-    [
-        new(1_000_000_000_000_000_000, GrammaticalGender.Masculine, "квинтилион", "квинтилиони", "квинтилионит"),
-        new(1_000_000_000_000_000, GrammaticalGender.Masculine, "квадрилион", "квадрилиони", "квадрилионит"),
-        new(1_000_000_000_000, GrammaticalGender.Masculine, "трилион", "трилиони", "трилионит"),
-        new(1_000_000_000, GrammaticalGender.Feminine, "милијарда", "милијарди", "милијардит"),
-        new(1_000_000, GrammaticalGender.Masculine, "милион", "милиони", "милионит"),
-        new(1_000, GrammaticalGender.Feminine, "илјада", "илјади", "илјадит", OmitOne: true)
     ];
 
     static readonly string[] OrdinalMasculine =
@@ -72,6 +62,7 @@ class MacedonianNumberToWordsConverter(CultureInfo culture) : GenderedNumberToWo
     ];
 
     readonly CultureInfo culture = culture;
+    readonly MacedonianScale[] scales = scales;
 
     public override string Convert(long number, GrammaticalGender gender, bool addAnd = true)
     {
@@ -82,16 +73,14 @@ class MacedonianNumberToWordsConverter(CultureInfo culture) : GenderedNumberToWo
 
         if (number < 0)
         {
-            if (number == long.MinValue)
-            {
-                return "минус " + ConvertPositive((ulong)long.MaxValue + 1UL, gender);
-            }
-
-            return "минус " + ConvertPositive((ulong)-number, gender);
+            return "минус " + ConvertPositive(GetAbsoluteValue(number), gender);
         }
 
         return ConvertPositive((ulong)number, gender);
     }
+
+    static ulong GetAbsoluteValue(long value) =>
+        value >= 0 ? (ulong)value : unchecked((ulong)(-(value + 1)) + 1);
 
     public override string Convert(long number, WordForm wordForm, GrammaticalGender gender, bool addAnd = true) =>
         Convert(number, gender, addAnd);
@@ -109,10 +98,10 @@ class MacedonianNumberToWordsConverter(CultureInfo culture) : GenderedNumberToWo
     public override string ConvertToOrdinal(int number, GrammaticalGender gender, WordForm wordForm) =>
         ConvertToOrdinal(number, gender);
 
-    static string ConvertPositive(ulong number, GrammaticalGender gender)
+    string ConvertPositive(ulong number, GrammaticalGender gender)
     {
         var parts = new List<string>();
-        foreach (var scale in Scales)
+        foreach (var scale in scales)
         {
             var count = number / scale.Value;
             if (count == 0)
@@ -189,7 +178,7 @@ class MacedonianNumberToWordsConverter(CultureInfo culture) : GenderedNumberToWo
             return GetOrdinalUnit((int)number, gender);
         }
 
-        foreach (var scale in Scales)
+        foreach (var scale in scales)
         {
             if ((ulong)number < scale.Value)
             {
@@ -253,5 +242,12 @@ class MacedonianNumberToWordsConverter(CultureInfo culture) : GenderedNumberToWo
             _ => stem + "и"
         };
 
-    readonly record struct Scale(ulong Value, GrammaticalGender Gender, string Singular, string Plural, string OrdinalStem, bool OmitOne = false);
 }
+
+readonly record struct MacedonianScale(
+    ulong Value,
+    GrammaticalGender Gender,
+    string Singular,
+    string Plural,
+    string OrdinalStem,
+    bool OmitOne = false);

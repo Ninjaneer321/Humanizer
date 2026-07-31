@@ -1,0 +1,65 @@
+---
+id: supported-cultures
+title: Supported cultures
+sidebar_position: 5
+diataxis: reference
+persona: application developer
+example: illustrative
+---
+
+import coverage from './language-coverage.json';
+
+export const supportedCultures =
+  coverage.locales?.map(({locale}) => locale) ?? coverage.cultures ?? [];
+
+# Supported cultures
+
+## Orientation
+
+Humanizer 4 treats locale support as all-or-nothing. Every culture listed below
+supports every applicable localized feature. Regional cultures may reuse a
+same-language parent, and calendar or numeric formatting may use .NET
+globalization data when no Humanizer override is needed; neither represents
+partial support.
+
+## Example
+
+Use a culture code from the list with `CultureInfo`:
+
+```csharp
+using System.Globalization;
+using Humanizer;
+
+var culture = CultureInfo.GetCultureInfo("pt-BR");
+Console.WriteLine(123.ToWords(culture));
+```
+
+<p>This version supports {supportedCultures.length} cultures:</p>
+
+<ul className="supportedCultureList" aria-label="Supported cultures">
+  {supportedCultures.map((locale) => (
+    <li key={locale}><code>{locale}</code></li>
+  ))}
+</ul>
+
+## Pitfall
+
+A listed culture is supported. Missing behavior, English fallback, or
+incorrect language in that culture is a bug. If output is wrong, use the
+correction path.
+
+[Open the correction guide](../contributing/report-language-issue.mdx) or
+[open a prefilled locale issue](https://github.com/Humanizr/Humanizer/issues/new?title=Locale%3A%20describe%20the%20language%20issue&body=Culture%3A%20%0AHumanizer%20version%3A%20%0AAPI%20call%3A%20%0AExpected%3A%20%0AActual%3A%20%0APlatform%2FTFM%3A%20).
+
+## Version notes
+
+The sibling `language-coverage.json` is generated separately for each docs
+version. Published snapshots use their own verified NuGet packages and culture
+lists; they never inherit another version's inventory.
+
+## Related guides and API
+
+- [Choose a culture](./using-cultures.mdx)
+- [Grammar and platform formatting](./grammar-and-platform-formatting.mdx)
+- [Report or correct a language issue](../contributing/report-language-issue.mdx)
+- [Selected-version API reference](../api/index.md)

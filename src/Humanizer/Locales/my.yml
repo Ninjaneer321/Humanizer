@@ -1,6 +1,21 @@
 locale: 'my'
 
 surfaces:
+  inflection:
+    cardinalRule: 'Other'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'my grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'နှင့်'
@@ -196,6 +211,50 @@ surfaces:
         forms:
           default: 'တယ်ရာဘိုက်'
         symbol: 'TB'
+      decimalKilobyte:
+        forms:
+          default: 'ကီလိုဘိုက်'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms:
+          default: 'မီဂါဘိုက်'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms:
+          default: 'ဂစ်ဂါဘိုက်'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms:
+          default: 'တယ်ရာဘိုက်'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms:
+          default: 'ပက်တာဘိုက်'
+        symbol: 'PB'
+      decimalExabyte:
+        forms:
+          default: 'အိတ်စ်ဆာဘိုက်'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms:
+          default: 'ကီဘီဘိုက်'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms:
+          default: 'မက်ဘီဘိုက်'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms:
+          default: 'ဂီဘီဘိုက်'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms:
+          default: 'တယ်ဘီဘိုက်'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms:
+          default: 'ပယ်ဘီဘိုက်'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'မီလီစက္ကန့်'
@@ -217,7 +276,7 @@ surfaces:
   number:
     words:
       engine: 'joined-scale'
-      maximumValue: 999999999
+      maximumValue: 9223372036854775807
       zeroWord: 'သုည'
       minusWord: 'အနုတ်'
       negativeJoinWord: ' '
@@ -367,6 +426,7 @@ surfaces:
         9: 'နဝမ'
         10: 'ဒသမ'
     parse:
+      decimalMarker: 'ဒသမ'
       engine: 'token-map'
       normalizationProfile: 'LowercaseRemovePeriods'
       ordinalAbbreviationSuffixes:

@@ -7,7 +7,7 @@ public class TimeSpanHumanizeTests
         var culture = new CultureInfo("en-US");
         var qry = from i in Enumerable.Range(0, 100000)
                   let ts = TimeSpan.FromDays(i)
-                  let text = ts.Humanize(precision: 3, culture: culture, maxUnit: TimeUnit.Year)
+                  let text = ts.Humanize(precision: 4, culture: culture, maxUnit: TimeUnit.Year)
                   select text;
         var grouping = from t in qry
                        group t by t into g
@@ -17,15 +17,15 @@ public class TimeSpanHumanizeTests
     }
 
     [Theory]
-    [InlineData(365, "11 months, 30 days")]
+    [InlineData(365, "11 months, 4 weeks, 2 days")]
     [InlineData(365 + 1, "1 year")]
-    [InlineData(365 + 365, "1 year, 11 months, 29 days")]
+    [InlineData(365 + 365, "1 year, 11 months, 4 weeks, 1 day")]
     [InlineData(365 + 365 + 1, "2 years")]
-    [InlineData(365 + 365 + 365, "2 years, 11 months, 29 days")]
+    [InlineData(365 + 365 + 365, "2 years, 11 months, 4 weeks, 1 day")]
     [InlineData(365 + 365 + 365 + 1, "3 years")]
-    [InlineData(365 + 365 + 365 + 365, "3 years, 11 months, 29 days")]
+    [InlineData(365 + 365 + 365 + 365, "3 years, 11 months, 4 weeks, 1 day")]
     [InlineData(365 + 365 + 365 + 365 + 1, "4 years")]
-    [InlineData(365 + 365 + 365 + 365 + 366, "4 years, 11 months, 30 days")]
+    [InlineData(365 + 365 + 365 + 365 + 366, "4 years, 11 months, 4 weeks, 2 days")]
     [InlineData(365 + 365 + 365 + 365 + 366 + 1, "5 years")]
     public void Years(int days, string expected)
     {
@@ -36,15 +36,15 @@ public class TimeSpanHumanizeTests
     [Theory]
     [InlineData(30, "4 weeks, 2 days")]
     [InlineData(30 + 1, "1 month")]
-    [InlineData(30 + 30, "1 month, 29 days")]
+    [InlineData(30 + 30, "1 month, 4 weeks, 1 day")]
     [InlineData(30 + 30 + 1, "2 months")]
-    [InlineData(30 + 30 + 31, "2 months, 30 days")]
+    [InlineData(30 + 30 + 31, "2 months, 4 weeks, 2 days")]
     [InlineData(30 + 30 + 31 + 1, "3 months")]
-    [InlineData(30 + 30 + 31 + 30, "3 months, 29 days")]
+    [InlineData(30 + 30 + 31 + 30, "3 months, 4 weeks, 1 day")]
     [InlineData(30 + 30 + 31 + 30 + 1, "4 months")]
-    [InlineData(30 + 30 + 31 + 30 + 31, "4 months, 30 days")]
+    [InlineData(30 + 30 + 31 + 30 + 31, "4 months, 4 weeks, 2 days")]
     [InlineData(30 + 30 + 31 + 30 + 31 + 1, "5 months")]
-    [InlineData(365, "11 months, 30 days")]
+    [InlineData(365, "11 months, 4 weeks, 2 days")]
     [InlineData(366, "1 year")]
     public void Months(int days, string expected)
     {
@@ -459,12 +459,607 @@ public class TimeSpanHumanizeTests
 
     [Theory]
     [InlineData(31 * 4, 1, "en-US", "four months")]
-    [InlineData(236, 2, "ar", "سبعة أشهر, اثنان و عشرون يوم")]
-    [InlineData(321, 2, "es", "diez meses, dieciséis días")]
+    [InlineData(236, 2, "ar", "سبعة أشهر, ثلاثة أسابيع")]
+    [InlineData(321, 2, "es", "diez meses, dos semanas")]
     public void CanSpecifyCultureExplicitlyToWords(int days, int precision, string culture, string expected)
     {
         var timeSpan = new TimeSpan(days, 0, 0, 0);
         var actual = timeSpan.Humanize(precision: precision, culture: new(culture), maxUnit: TimeUnit.Year, toWords: true);
         Assert.Equal(expected: expected, actual);
     }
+
+    [Theory]
+    [InlineData(TimeUnit.Millisecond, "2147483647 milliseconds")]
+    [InlineData(TimeUnit.Second, "2147483647 seconds")]
+    [InlineData(TimeUnit.Minute, "2147483647 minutes")]
+    public void LargeTimeSpansSaturateCounts(TimeUnit unit, string expected)
+    {
+        Assert.Equal(expected, TimeSpan.MaxValue.Humanize(maxUnit: unit, minUnit: unit));
+        Assert.Equal(expected, TimeSpan.MinValue.Humanize(maxUnit: unit, minUnit: unit));
+    }
+
+    [Theory]
+    [InlineData(109, TimeUnit.Month, "3 months, 2 weeks, 3 days, 4 hours")]
+    [InlineData(-109, TimeUnit.Month, "3 months, 2 weeks, 3 days, 4 hours")]
+    [InlineData(474, TimeUnit.Year, "1 year, 3 months, 2 weeks, 3 days, 4 hours")]
+    [InlineData(-474, TimeUnit.Year, "1 year, 3 months, 2 weeks, 3 days, 4 hours")]
+    public void MonthAndYearRangesIncludeWeeks(int days, TimeUnit maxUnit, string expected)
+    {
+        var actual = new TimeSpan(days, days < 0 ? -4 : 4, 0, 0).Humanize(5, maxUnit: maxUnit);
+        Assert.Equal(expected, actual);
+    }
+
+    [Theory]
+    [InlineData(30, "4 weeks, 2 days")]
+    [InlineData(-30, "4 weeks, 2 days")]
+    [InlineData(31, "1 month")]
+    [InlineData(-31, "1 month")]
+    [InlineData(32, "1 month, 1 day")]
+    [InlineData(-32, "1 month, 1 day")]
+    [InlineData(60, "1 month, 4 weeks, 1 day")]
+    [InlineData(-60, "1 month, 4 weeks, 1 day")]
+    public void PositiveAndNegativeMonthsUseTheSameDecomposition(int days, string expected)
+    {
+        var actual = TimeSpan.FromDays(days).Humanize(precision: 3, maxUnit: TimeUnit.Month, minUnit: TimeUnit.Minute);
+        Assert.Equal(expected, actual);
+    }
+
+    [Theory]
+    [InlineData(TimeUnit.Month, 109, 2, "3 months, 2 weeks")]
+    [InlineData(TimeUnit.Year, 474, 3, "1 year, 3 months, 2 weeks")]
+    public void CanRequestWeeksBelowMonthOrYear(TimeUnit maxUnit, int days, int precision, string expected)
+    {
+        var actual = TimeSpan.FromDays(days).Humanize(precision, maxUnit: maxUnit, minUnit: TimeUnit.Week);
+        Assert.Equal(expected, actual);
+    }
+
+    [Theory]
+    [InlineData(3, "1week, 1d, 1h")]
+    [InlineData(6, "1week, 1d, 1h, 2min, 3s, 4ms")]
+    public void CanUseLocalizedSymbolsWithPrecision(int precision, string expected)
+    {
+        var timeSpan = new TimeSpan(8, 1, 2, 3, 4);
+
+        var actual = timeSpan.HumanizeToSymbols(precision);
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void SymbolsUseInclusiveMonthToWeekBounds()
+    {
+        var actual = TimeSpan.FromDays(109).HumanizeToSymbols(
+            precision: 2,
+            maxUnit: TimeUnit.Month,
+            minUnit: TimeUnit.Week);
+
+        Assert.Equal("3mo, 2week", actual);
+    }
+
+    [Fact]
+    public void SymbolZeroUsesMinimumUnit()
+    {
+        var actual = TimeSpan.Zero.HumanizeToSymbols(minUnit: TimeUnit.Second);
+
+        Assert.Equal("0s", actual);
+    }
+
+    [Theory]
+    [InlineData(3723004)]
+    [InlineData(-3723004)]
+    public void SymbolsPreserveNegativeSymmetry(long milliseconds)
+    {
+        var actual = TimeSpan.FromMilliseconds(milliseconds).HumanizeToSymbols(precision: 4);
+
+        Assert.Equal("1h, 2min, 3s, 4ms", actual);
+    }
+
+    [Fact]
+    public void DefaultOutputIsUnchangedWhenSymbolsAreNotRequested()
+    {
+        var actual = new TimeSpan(0, 1, 2, 3).Humanize(precision: 3);
+
+        Assert.Equal("1 hour, 2 minutes, 3 seconds", actual);
+    }
+
+    [Fact]
+    public void SymbolsUseTheRequestedCulture()
+    {
+        var actual = TimeSpan.FromMinutes(2).HumanizeToSymbols(culture: new("ka"));
+
+        Assert.Equal("2წთ", actual);
+    }
+
+    [Fact]
+    public void SymbolsUseCurrentCultureWhenCultureIsNotSpecified()
+    {
+        using var _ = new Humanizer.Tests.Localisation.DistinctCultureSwap(new("ka"), new("en-US"));
+
+        var actual = TimeSpan.FromMinutes(2).HumanizeToSymbols();
+
+        Assert.Equal("2წთ", actual);
+    }
+
+    [Fact]
+    public void SymbolsCanCountEmptyUnits()
+    {
+        var actual = TimeSpan.FromMilliseconds(3600020).HumanizeToSymbols(
+            precision: 3,
+            countEmptyUnits: true);
+
+        Assert.Equal("1h", actual);
+    }
+
+    [Fact]
+    public void DefaultStrategyPreservesExistingOutputs()
+    {
+        var strategy = new DefaultTimeSpanHumanizeStrategy();
+        var timeSpan = new TimeSpan(8, 1, 2, 3, 4);
+
+        Assert.Equal(
+            "1 week, 1 day, 1 hour",
+            strategy.Humanize(timeSpan, 3, false, new("en-US"), TimeUnit.Week, TimeUnit.Millisecond, ", ", false, false));
+        Assert.Equal(
+            "1 week, 1 day, 1 hour",
+            strategy.Humanize(timeSpan, 3, false, new("en-US"), TimeUnit.Week, TimeUnit.Millisecond, ", ", false, default));
+        Assert.Equal(
+            "1week, 1d, 1h",
+            strategy.Humanize(timeSpan, 3, false, new("en-US"), TimeUnit.Week, TimeUnit.Millisecond, ", ", false, true));
+    }
+
+    [Fact]
+    public void DefaultStrategyPreservesSymbolPrecedenceForZeroFallbacks()
+    {
+        var strategy = new DefaultTimeSpanHumanizeStrategy();
+        var culture = new CultureInfo("en-US");
+
+        Assert.Equal(
+            "0ms",
+            strategy.Humanize(TimeSpan.Zero, 1, false, culture, TimeUnit.Week, TimeUnit.Millisecond, ", ", true, true));
+        Assert.Equal(
+            "0s",
+            strategy.Humanize(TimeSpan.FromMilliseconds(1), 2, false, culture, TimeUnit.Week, TimeUnit.Second, ", ", true, true));
+    }
+
+    [Fact]
+    public void GrammaticalCaseAppliesToEveryPart()
+    {
+        var actual = new TimeSpan(8, 2, 0, 0).HumanizeWithCase(
+            GrammaticalCase.Dative,
+            precision: 3,
+            culture: new("de-DE"));
+
+        Assert.Equal("einer Woche, einem Tag, 2 Stunden", actual);
+    }
+
+    [Fact]
+    public void BasqueUsesAbsolutiveAsItsCitationCase()
+    {
+        var culture = new CultureInfo("eu");
+        var duration = TimeSpan.FromDays(1);
+
+        Assert.Equal("1 egun", duration.Humanize(culture: culture));
+        Assert.Equal(
+            "egun bat",
+            duration.HumanizeWithCase(GrammaticalCase.Absolutive, culture: culture));
+        Assert.Throws<NotSupportedException>(
+            () => duration.HumanizeWithCase(GrammaticalCase.Nominative, culture: culture));
+    }
+
+    [Theory]
+    [InlineData("az", "one gün", "bir gün")]
+    [InlineData("cs", "one den", "jeden den")]
+    [InlineData("el", "one μέρα", "μία μέρα")]
+    [InlineData("hr", "one dan", "jedan dan")]
+    [InlineData("lv", "one diena", "viena diena")]
+    [InlineData("pl", "one dzień", "jeden dzień")]
+    [InlineData("sk", "one deň", "jeden deň")]
+    [InlineData("sl", "one dan", "en dan")]
+    [InlineData("sr-Latn", "one dan", "jedan dan")]
+    [InlineData("sr", "one дан", "један дан")]
+    [InlineData("sv", "one dag", "en dag")]
+    [InlineData("uz-Cyrl-UZ", "one кун", "бир кун")]
+    [InlineData("uz-Latn-UZ", "one kun", "bir kun")]
+    public void CaseAwareCitationDoesNotChangeLegacyToWords(
+        string cultureName,
+        string legacy,
+        string caseAware)
+    {
+        var culture = new CultureInfo(cultureName);
+        var duration = TimeSpan.FromDays(1);
+
+        Assert.Equal(legacy, duration.Humanize(toWords: true, culture: culture));
+        Assert.Equal(
+            caseAware,
+            duration.HumanizeWithCase(GrammaticalCase.Nominative, culture: culture));
+    }
+
+    [Fact]
+    public void InvalidGrammaticalCaseThrows()
+    {
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(
+            () => TimeSpan.FromDays(1).HumanizeWithCase((GrammaticalCase)int.MaxValue));
+
+        Assert.Equal("grammaticalCase", exception.ParamName);
+    }
+
+    [Fact]
+    public void CaseAwareFormatterRejectsInvalidTimeUnit()
+    {
+        IGrammaticalCaseTimeSpanFormatter formatter = new DefaultFormatter("de");
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(
+            () => formatter.TimeSpanHumanize((TimeUnit)int.MaxValue, 1, GrammaticalCase.Dative));
+
+        Assert.Equal("timeUnit", exception.ParamName);
+    }
+
+    [Fact]
+    public void DefaultLiteralPreservesLegacyFormatterOverload()
+    {
+        var formatter = new DefaultFormatter("en");
+
+        Assert.Equal("1 day", formatter.TimeSpanHumanize(TimeUnit.Day, 1, default));
+    }
+
+    [Theory]
+    [InlineData("en-US")]
+    public void NominativeRejectsUnavailableLocale(string culture)
+    {
+        Assert.Throws<NotSupportedException>(
+            () => TimeSpan.FromDays(1).HumanizeWithCase(
+                GrammaticalCase.Nominative,
+                culture: new(culture)));
+    }
+
+    [Fact]
+    public void NominativeCaseRejectsLegacyCustomStrategy()
+    {
+        var originalStrategy = Configurator.TimeSpanHumanizeStrategy;
+        var strategy = new RecordingTimeSpanHumanizeStrategy
+        {
+            Target = TimeSpan.FromDays(1)
+        };
+
+        try
+        {
+            Configurator.TimeSpanHumanizeStrategy = strategy;
+
+            var exception = Assert.Throws<NotSupportedException>(
+                () => strategy.Target.HumanizeWithCase(GrammaticalCase.Nominative));
+
+            Assert.Contains(nameof(ITimeSpanHumanizeStrategy), exception.Message);
+            Assert.Equal(0, strategy.CallCount);
+        }
+        finally
+        {
+            Configurator.TimeSpanHumanizeStrategy = originalStrategy;
+        }
+    }
+
+    [Fact]
+    public void NonNominativeCaseRejectsLegacyCustomStrategy()
+    {
+        var originalStrategy = Configurator.TimeSpanHumanizeStrategy;
+        var strategy = new RecordingTimeSpanHumanizeStrategy
+        {
+            Target = TimeSpan.FromDays(1)
+        };
+
+        try
+        {
+            Configurator.TimeSpanHumanizeStrategy = strategy;
+
+            var exception = Assert.Throws<NotSupportedException>(
+                () => strategy.Target.HumanizeWithCase(GrammaticalCase.Dative));
+
+            Assert.Contains(nameof(ITimeSpanHumanizeStrategy), exception.Message);
+            Assert.Equal(0, strategy.CallCount);
+        }
+        finally
+        {
+            Configurator.TimeSpanHumanizeStrategy = originalStrategy;
+        }
+    }
+
+    [Fact]
+    public void LegacyFormattingPreservesCustomFormatterCompatibility()
+    {
+        var formatter = new LegacyFormatter();
+
+        Assert.Equal(
+            "custom",
+            TimeSpanHumanizeExtensions.FormatTimePart(
+                formatter,
+                TimeUnit.Day,
+                1,
+                CultureInfo.InvariantCulture,
+                false,
+                false,
+                null));
+
+        var nominativeException = Assert.Throws<NotSupportedException>(
+            () => TimeSpanHumanizeExtensions.FormatTimePart(
+                formatter,
+                TimeUnit.Day,
+                1,
+                CultureInfo.InvariantCulture,
+                false,
+                false,
+                GrammaticalCase.Nominative));
+        var dativeException = Assert.Throws<NotSupportedException>(
+            () => TimeSpanHumanizeExtensions.FormatTimePart(
+                formatter,
+                TimeUnit.Day,
+                1,
+                CultureInfo.InvariantCulture,
+                false,
+                false,
+                GrammaticalCase.Dative));
+
+        Assert.Contains("formatter", nominativeException.Message);
+        Assert.Contains("formatter", dativeException.Message);
+    }
+
+    [Fact]
+    public void UnsupportedFormatterReportsTheFormattingCulture()
+    {
+        var originalUiCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentUICulture = new("fr-FR");
+
+            var exception = Assert.Throws<NotSupportedException>(
+                () => TimeSpanHumanizeExtensions.FormatTimePart(
+                    new LegacyFormatter(),
+                    TimeUnit.Day,
+                    1,
+                    null,
+                    false,
+                    false,
+                    GrammaticalCase.Dative));
+
+            Assert.Contains(CultureInfo.CurrentCulture.Name, exception.Message);
+            Assert.DoesNotContain(CultureInfo.CurrentUICulture.Name, exception.Message);
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = originalUiCulture;
+        }
+    }
+
+    [Fact]
+    public void DefaultFormatterSubclassMustExplicitlyOptIntoGrammaticalCaseSupport()
+    {
+        var formatter = new LegacyDefaultFormatterSubclass();
+
+        Assert.Equal(
+            "custom",
+            TimeSpanHumanizeExtensions.FormatTimePart(
+                formatter,
+                TimeUnit.Day,
+                1,
+                CultureInfo.InvariantCulture,
+                false,
+                false,
+                null));
+
+        var exception = Assert.Throws<NotSupportedException>(
+            () => TimeSpanHumanizeExtensions.FormatTimePart(
+                formatter,
+                TimeUnit.Day,
+                1,
+                CultureInfo.InvariantCulture,
+                false,
+                false,
+                GrammaticalCase.Dative));
+
+        Assert.Contains(nameof(IGrammaticalCaseTimeSpanFormatter), exception.Message);
+    }
+
+    [Fact]
+    public void DefaultStrategySubclassMustExplicitlyOptIntoGrammaticalCaseSupport()
+    {
+        var originalStrategy = Configurator.TimeSpanHumanizeStrategy;
+        var strategy = new LegacyDefaultStrategySubclass();
+
+        try
+        {
+            Configurator.TimeSpanHumanizeStrategy = strategy;
+
+            Assert.Equal("custom", TimeSpan.FromDays(1).Humanize());
+
+            var exception = Assert.Throws<NotSupportedException>(
+                () => TimeSpan.FromDays(1).HumanizeWithCase(GrammaticalCase.Dative));
+
+            Assert.Contains(nameof(IGrammaticalCaseTimeSpanHumanizeStrategy), exception.Message);
+        }
+        finally
+        {
+            Configurator.TimeSpanHumanizeStrategy = originalStrategy;
+        }
+    }
+
+    [Fact]
+    public void DefaultFormatterSubclassCanExplicitlyOptIntoGrammaticalCaseSupport()
+    {
+        var formatter = new OptedInDefaultFormatterSubclass();
+
+        Assert.Equal(
+            "custom case",
+            TimeSpanHumanizeExtensions.FormatTimePart(
+                formatter,
+                TimeUnit.Day,
+                1,
+                CultureInfo.InvariantCulture,
+                false,
+                false,
+                GrammaticalCase.Dative));
+    }
+
+    [Fact]
+    public void DefaultStrategySubclassCanExplicitlyOptIntoGrammaticalCaseSupport()
+    {
+        var originalStrategy = Configurator.TimeSpanHumanizeStrategy;
+
+        try
+        {
+            Configurator.TimeSpanHumanizeStrategy = new OptedInDefaultStrategySubclass();
+
+            Assert.Equal(
+                "custom case",
+                TimeSpan.FromDays(1).HumanizeWithCase(GrammaticalCase.Dative));
+        }
+        finally
+        {
+            Configurator.TimeSpanHumanizeStrategy = originalStrategy;
+        }
+    }
+
+    [Fact]
+    public void ConfiguredStrategyReceivesEveryOptionFromEveryOverload()
+    {
+        var originalStrategy = Configurator.TimeSpanHumanizeStrategy;
+        var strategy = new RecordingTimeSpanHumanizeStrategy();
+        var culture = new CultureInfo("fr");
+        strategy.Target = TimeSpan.FromTicks(123456789012341);
+
+        try
+        {
+            Configurator.TimeSpanHumanizeStrategy = strategy;
+
+            Assert.Equal("custom", strategy.Target.Humanize(2, culture, TimeUnit.Day, TimeUnit.Second, " / ", true));
+            Assert.Equal(new(strategy.Target, 2, false, culture, TimeUnit.Day, TimeUnit.Second, " / ", true, false), strategy.LastCall);
+
+            strategy.Target = TimeSpan.FromTicks(123456789012342);
+            Assert.Equal("custom", strategy.Target.Humanize(3, true, culture, TimeUnit.Hour, TimeUnit.Minute, " + ", true));
+            Assert.Equal(new(strategy.Target, 3, true, culture, TimeUnit.Hour, TimeUnit.Minute, " + ", true, false), strategy.LastCall);
+
+            strategy.Target = TimeSpan.FromTicks(123456789012343);
+            Assert.Equal("custom", strategy.Target.HumanizeToSymbols(4, culture, TimeUnit.Month, TimeUnit.Week, " | "));
+            Assert.Equal(new(strategy.Target, 4, false, culture, TimeUnit.Month, TimeUnit.Week, " | ", false, true), strategy.LastCall);
+
+            strategy.Target = TimeSpan.FromTicks(123456789012344);
+            Assert.Equal("custom", strategy.Target.HumanizeToSymbols(5, true, culture, TimeUnit.Year, TimeUnit.Day, null));
+            Assert.Equal(new(strategy.Target, 5, true, culture, TimeUnit.Year, TimeUnit.Day, null, false, true), strategy.LastCall);
+
+            Assert.Equal(4, strategy.CallCount);
+        }
+        finally
+        {
+            Configurator.TimeSpanHumanizeStrategy = originalStrategy;
+        }
+    }
+
+    sealed class RecordingTimeSpanHumanizeStrategy : ITimeSpanHumanizeStrategy
+    {
+        readonly DefaultTimeSpanHumanizeStrategy defaultStrategy = new();
+
+        public TimeSpan Target { get; set; }
+        public int CallCount { get; private set; }
+        public TimeSpanHumanizeCall? LastCall { get; private set; }
+
+        public string Humanize(
+            TimeSpan timeSpan,
+            int precision,
+            bool countEmptyUnits,
+            CultureInfo? culture,
+            TimeUnit maxUnit,
+            TimeUnit minUnit,
+            string? collectionSeparator,
+            bool toWords,
+            bool toSymbols)
+        {
+            if (timeSpan != Target)
+            {
+                return defaultStrategy.Humanize(
+                    timeSpan,
+                    precision,
+                    countEmptyUnits,
+                    culture,
+                    maxUnit,
+                    minUnit,
+                    collectionSeparator,
+                    toWords,
+                    toSymbols);
+            }
+
+            CallCount++;
+            LastCall = new(timeSpan, precision, countEmptyUnits, culture, maxUnit, minUnit, collectionSeparator, toWords, toSymbols);
+            return "custom";
+        }
+    }
+
+    sealed class LegacyFormatter : IFormatter
+    {
+        public string DateHumanize_Now() => throw new NotSupportedException();
+        public string DateHumanize_Never() => throw new NotSupportedException();
+        public string DateHumanize(TimeUnit timeUnit, Tense timeUnitTense, int unit) => throw new NotSupportedException();
+        public string TimeSpanHumanize_Zero() => throw new NotSupportedException();
+        public string TimeSpanHumanize(TimeUnit timeUnit, int unit, bool toWords = false) => "custom";
+        public string TimeSpanHumanize_Age() => throw new NotSupportedException();
+        public string DataUnitHumanize(DataUnit dataUnit, double count, bool toSymbol = true) => throw new NotSupportedException();
+        public string TimeUnitHumanize(TimeUnit timeUnit) => throw new NotSupportedException();
+    }
+
+    sealed class LegacyDefaultFormatterSubclass()
+        : DefaultFormatter(CultureInfo.InvariantCulture)
+    {
+        public override string TimeSpanHumanize(TimeUnit timeUnit, int unit, bool toWords = false) => "custom";
+    }
+
+    sealed class OptedInDefaultFormatterSubclass()
+        : DefaultFormatter(CultureInfo.InvariantCulture),
+          IGrammaticalCaseTimeSpanFormatter
+    {
+        string IGrammaticalCaseTimeSpanFormatter.TimeSpanHumanize(
+            TimeUnit timeUnit,
+            int unit,
+            GrammaticalCase grammaticalCase) =>
+            "custom case";
+    }
+
+    sealed class LegacyDefaultStrategySubclass
+        : DefaultTimeSpanHumanizeStrategy,
+          ITimeSpanHumanizeStrategy
+    {
+        string ITimeSpanHumanizeStrategy.Humanize(
+            TimeSpan timeSpan,
+            int precision,
+            bool countEmptyUnits,
+            CultureInfo? culture,
+            TimeUnit maxUnit,
+            TimeUnit minUnit,
+            string? collectionSeparator,
+            bool toWords,
+            bool toSymbols) =>
+            "custom";
+    }
+
+    sealed class OptedInDefaultStrategySubclass
+        : DefaultTimeSpanHumanizeStrategy,
+          IGrammaticalCaseTimeSpanHumanizeStrategy
+    {
+        string IGrammaticalCaseTimeSpanHumanizeStrategy.Humanize(
+            TimeSpan timeSpan,
+            int precision,
+            bool countEmptyUnits,
+            CultureInfo? culture,
+            TimeUnit maxUnit,
+            TimeUnit minUnit,
+            string? collectionSeparator,
+            bool toSymbols,
+            GrammaticalCase grammaticalCase) =>
+            "custom case";
+    }
+
+    sealed record TimeSpanHumanizeCall(
+        TimeSpan TimeSpan,
+        int Precision,
+        bool CountEmptyUnits,
+        CultureInfo? Culture,
+        TimeUnit MaxUnit,
+        TimeUnit MinUnit,
+        string? CollectionSeparator,
+        bool ToWords,
+        bool ToSymbols);
 }

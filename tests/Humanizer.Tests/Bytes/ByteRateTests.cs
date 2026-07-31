@@ -54,6 +54,141 @@ public class ByteRateTests
         Assert.Equal(expectedValue, text);
     }
 
+    [Fact]
+    public void ToStringReturnsHumanizedRate() =>
+        Assert.Equal("400 B/s", ByteSize.FromBytes(400).Per(TimeSpan.FromSeconds(1)).ToString());
+
+    [Theory]
+    [InlineData(ByteSizeUnitSystem.DecimalSi)]
+    [InlineData(ByteSizeUnitSystem.BinaryIec)]
+    public void ExplicitUnitSystemsPreserveExactIdentityAndIntegralBitScaling(ByteSizeUnitSystem unitSystem)
+    {
+        var exactSize = ByteSize.ParseWithUnitSystem(
+            "9007199254740993 b",
+            unitSystem,
+            CultureInfo.InvariantCulture);
+
+        Assert.Equal(
+            "9007199254740993 b/s",
+            exactSize
+                .Per(TimeSpan.FromSeconds(1))
+                .HumanizeWithUnitSystem(unitSystem, "0 b"));
+        Assert.Equal(
+            "4503599627370497 b/s",
+            exactSize
+                .Per(TimeSpan.FromSeconds(2))
+                .HumanizeWithUnitSystem(unitSystem, "0 b"));
+        Assert.Equal(
+            $"{long.MaxValue} b/s",
+            ByteSize.ParseWithUnitSystem($"{long.MaxValue} b", unitSystem, CultureInfo.InvariantCulture)
+                .Per(TimeSpan.FromSeconds(1))
+                .HumanizeWithUnitSystem(unitSystem, "0 b"));
+        Assert.Equal(
+            $"{long.MinValue} b/s",
+            ByteSize.MinValue
+                .Per(TimeSpan.FromSeconds(1))
+                .HumanizeWithUnitSystem(unitSystem, "0 b"));
+    }
+
+    [Theory]
+    [InlineData(ByteSizeUnitSystem.DecimalSi)]
+    [InlineData(ByteSizeUnitSystem.BinaryIec)]
+    public void ExplicitBitRatesPreserveExactDirectInputs(ByteSizeUnitSystem unitSystem)
+    {
+        var size = ByteSize.FromBits(-1);
+        var rate = size.Per(TimeSpan.FromSeconds(0.5));
+
+        Assert.Equal(-1, size.Bits);
+        Assert.Equal("-2 b/s", rate.HumanizeWithUnitSystem(unitSystem, "0 b"));
+        Assert.Equal("-0.25 B/s", rate.HumanizeWithUnitSystem(unitSystem, "0.## B"));
+        Assert.Equal(
+            "0 b/s",
+            size.Per(TimeSpan.FromSeconds(2)).HumanizeWithUnitSystem(unitSystem));
+    }
+
+    [Theory]
+    [InlineData(-9007199254740993, 2, "-4503599627370496 b/s")]
+    [InlineData(9007199254740993, -2, "-4503599627370496 b/s")]
+    [InlineData(-9007199254740993, -2, "4503599627370497 b/s")]
+    public void ExplicitUnitSystemsApplySignedRationalCeiling(long bits, int intervalSeconds, string expected) =>
+        Assert.Equal(
+            expected,
+            ByteSize.ParseWithUnitSystem(
+                    $"{bits} b",
+                    ByteSizeUnitSystem.DecimalSi,
+                    CultureInfo.InvariantCulture)
+                .Per(TimeSpan.FromSeconds(intervalSeconds))
+                .HumanizeWithUnitSystem(ByteSizeUnitSystem.DecimalSi, "0 b"));
+
+    [Fact]
+    public void ExplicitUnitSystemsPreserveLegacyFallbackForUndefinedOrOutOfRangeRates()
+    {
+        verifyFallback(ByteSize.FromBits(1), TimeSpan.Zero);
+        verifyFallback(ByteSize.MaxValue, TimeSpan.FromTicks(1));
+
+        static void verifyFallback(ByteSize size, TimeSpan interval)
+        {
+            var displayInterval = TimeSpan.FromSeconds(1);
+            var scaledBytes = size.Bytes / interval.TotalSeconds * displayInterval.TotalSeconds;
+            var expected = new ByteSize(scaledBytes)
+                .HumanizeWithUnitSystem(ByteSizeUnitSystem.DecimalSi, "0 b") + "/s";
+
+            Assert.Equal(
+                expected,
+                size.Per(interval).HumanizeWithUnitSystem(ByteSizeUnitSystem.DecimalSi, "0 b"));
+        }
+    }
+
+    [Theory]
+    [InlineData(400, 10, 800, 20, 0)]
+    [InlineData(400, 10, 800, 10, -1)]
+    [InlineData(800, 10, 400, 10, 1)]
+    public void ComparesNormalizedRates(
+        long leftBytes,
+        int leftIntervalSeconds,
+        long rightBytes,
+        int rightIntervalSeconds,
+        int expected)
+    {
+        var left = ByteSize.FromBytes(leftBytes).Per(TimeSpan.FromSeconds(leftIntervalSeconds));
+        var right = ByteSize.FromBytes(rightBytes).Per(TimeSpan.FromSeconds(rightIntervalSeconds));
+
+        Assert.Equal(expected, left.CompareTo(right));
+    }
+
+    [Fact]
+    public void EqualsNormalizedRates()
+    {
+        var left = ByteSize.FromBytes(400).Per(TimeSpan.FromSeconds(10));
+        var right = ByteSize.FromBytes(800).Per(TimeSpan.FromSeconds(20));
+
+        Assert.Equal(left, right);
+        Assert.True(left.Equals((object)right));
+        Assert.Equal(left.GetHashCode(), right.GetHashCode());
+    }
+
+    [Fact]
+    public void DoesNotEqualDifferentOrNullRates()
+    {
+        var rate = ByteSize.FromBytes(400).Per(TimeSpan.FromSeconds(10));
+        var other = ByteSize.FromBytes(800).Per(TimeSpan.FromSeconds(10));
+
+        Assert.NotEqual(rate, other);
+        Assert.False(rate.Equals(null));
+        Assert.False(rate.Equals((object?)null));
+        Assert.False(rate.Equals(new object()));
+    }
+
+    [Fact]
+    public void UntypedComparisonRejectsOtherTypes()
+    {
+        var rate = ByteSize.FromBytes(400).Per(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(1, rate.CompareTo(null));
+        Assert.Equal(1, ((IComparable)rate).CompareTo(null));
+        Assert.Throws<ArgumentException>(() => ((IComparable)rate).CompareTo(40d));
+    }
+
     [Theory]
     [InlineData(TimeUnit.Millisecond)]
     [InlineData(TimeUnit.Day)]

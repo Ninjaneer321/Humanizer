@@ -26,16 +26,19 @@ public sealed partial class HumanizerSourceGenerator
 
     internal sealed class DateHumanizePhraseSet(
         string? now,
+        string? today,
         string? never,
         ImmutableDictionary<string, DateHumanizePhrase> past,
         ImmutableDictionary<string, DateHumanizePhrase> future)
     {
         public string? Now { get; } = now;
+        public string? Today { get; } = today;
         public string? Never { get; } = never;
         public ImmutableDictionary<string, DateHumanizePhrase> Past { get; } = past;
         public ImmutableDictionary<string, DateHumanizePhrase> Future { get; } = future;
 
         public static DateHumanizePhraseSet Empty { get; } = new(
+            null,
             null,
             null,
             EmptyDateHumanizeUnits,
@@ -105,26 +108,32 @@ public sealed partial class HumanizerSourceGenerator
 
     internal sealed class PhraseForms(
         string defaultForm,
+        string? zero = null,
         string? singular = null,
         string? dual = null,
         string? paucal = null,
-        string? plural = null)
+        string? plural = null,
+        string? many = null)
     {
         public string Default { get; } = defaultForm;
+        public string? Zero { get; } = zero;
         public string? Singular { get; } = singular;
         public string? Dual { get; } = dual;
         public string? Paucal { get; } = paucal;
         public string? Plural { get; } = plural;
+        public string? Many { get; } = many;
 
-        public static PhraseForms FromScalar(string value) => new(value, value);
+        public static PhraseForms FromScalar(string value) => new(value, singular: value);
 
         public PhraseForms CollapseDuplicates() =>
             new(
                 Default,
+                CollapseDuplicate(Default, Zero),
                 CollapseDuplicate(Default, Singular),
                 CollapseDuplicate(Default, Dual),
                 CollapseDuplicate(Default, Paucal),
-                CollapseDuplicate(Default, Plural));
+                CollapseDuplicate(Default, Plural),
+                CollapseDuplicate(Default, Many));
 
         static string? CollapseDuplicate(string baseline, string? candidate) =>
             string.Equals(baseline, candidate, StringComparison.Ordinal)

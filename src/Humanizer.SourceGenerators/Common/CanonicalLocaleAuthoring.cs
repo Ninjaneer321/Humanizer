@@ -41,12 +41,14 @@ public sealed partial class HumanizerSourceGenerator
         [
             "list",
             "formatter",
+            "durationCases",
             "phrases",
             "number",
             "ordinal",
             "clock",
             "compass",
-            "calendar"
+            "calendar",
+            "inflection"
         ];
 
         internal static CanonicalLocaleDocument Parse(string localeCode, string fileText)
@@ -145,6 +147,7 @@ public sealed partial class HumanizerSourceGenerator
                         foreach (var propertyName in new[]
                         {
                             "pluralRule",
+                            "casePluralRule",
                             "dataUnitPluralRule",
                             "dataUnitNonIntegralForm",
                             "prepositionMode",
@@ -163,6 +166,10 @@ public sealed partial class HumanizerSourceGenerator
                             features["grammar"] = new SimpleYamlMapping(grammar.ToImmutable());
                         }
 
+                        break;
+
+                    case "durationCases":
+                        features["durationCases"] = surfaceMapping;
                         break;
 
                     case "phrases":
@@ -188,6 +195,11 @@ public sealed partial class HumanizerSourceGenerator
                     case "calendar":
                         AddCalendarFeatures(document.LocaleCode, surfaceMapping, features);
                         break;
+
+                    case "inflection":
+                        features["inflection"] = surfaceMapping;
+                        break;
+
                     default:
                         break;
                 }
@@ -538,6 +550,7 @@ public sealed partial class HumanizerSourceGenerator
             "collectionFormatter",
             "dateOnlyToOrdinalWords",
             "dateToOrdinalWords",
+            "durationCases",
             "formatter",
             "grammar",
             "headings",
@@ -586,6 +599,7 @@ public sealed partial class HumanizerSourceGenerator
 
             builder.AppendLine();
             builder.AppendLine("surfaces:");
+            AppendMigratedSurface(builder, "durationCases", root, "durationCases");
             AppendMigratedSurface(builder, "list", root, "collectionFormatter", isCollectionFormatter: true);
             AppendMigratedFormatterSurface(builder, root);
             AppendMigratedPhrasesSurface(builder, root);
@@ -872,6 +886,7 @@ public sealed partial class HumanizerSourceGenerator
                     DateHumanize = new
                     {
                         locale.Phrases.DateHumanize.Now,
+                        locale.Phrases.DateHumanize.Today,
                         locale.Phrases.DateHumanize.Never,
                         Past = CreateDatePhraseMap(locale.Phrases.DateHumanize.Past),
                         Future = CreateDatePhraseMap(locale.Phrases.DateHumanize.Future)
@@ -893,7 +908,8 @@ public sealed partial class HumanizerSourceGenerator
                 Clock = CreateFeatureFingerprint(locale.TimeOnlyToClockNotation),
                 Formatter = CreateFeatureFingerprint(locale.Formatter),
                 Calendar = locale.Calendar is null ? null : NormalizeJson(LocaleCatalogInput.ToJsonElement(locale.Calendar)),
-                NumberFormatting = locale.NumberFormatting is null ? null : NormalizeJson(LocaleCatalogInput.ToJsonElement(locale.NumberFormatting))
+                NumberFormatting = locale.NumberFormatting is null ? null : NormalizeJson(LocaleCatalogInput.ToJsonElement(locale.NumberFormatting)),
+                Inflection = locale.Inflection is null ? null : NormalizeJson(LocaleCatalogInput.ToJsonElement(locale.Inflection))
             };
 
         static object? CreateFeatureFingerprint(LocaleFeature? feature)

@@ -55,6 +55,16 @@ public class LocaleRegistrySweepTests
         Assert.Equal(expected, number.ToOrdinalWords(GrammaticalGender.Feminine, culture));
     }
 
+    [Theory]
+    [MemberData(nameof(ShippedLocaleRows))]
+    public void NumberToWords_NativeLocales_SupportSignedLongEndpoints(string localeName)
+    {
+        var culture = new CultureInfo(localeName);
+
+        Assert.False(string.IsNullOrWhiteSpace(long.MaxValue.ToWords(culture)));
+        Assert.False(string.IsNullOrWhiteSpace(long.MinValue.ToWords(culture)));
+    }
+
     [Fact]
     public void NumberToWords_BrazilianPortuguese_UsesGenderedForms()
     {
@@ -147,6 +157,7 @@ public class LocaleRegistrySweepTests
         using var _ = new CultureSwap(new(localeName));
         var date = new DateTime(expected.Year, expected.Month, expected.Day);
         Assert.Equal(expected.Expected, date.ToOrdinalWords());
+        Assert.Equal(expected.Expected, date.ToOrdinalWords(GrammaticalCase.Genitive));
     }
 
     [Theory]
@@ -243,6 +254,7 @@ public class LocaleRegistrySweepTests
         using var _ = new CultureSwap(new(localeName));
         var date = new DateOnly(expected.Year, expected.Month, expected.Day);
         Assert.Equal(expected.Expected, date.ToOrdinalWords());
+        Assert.Equal(expected.Expected, date.ToOrdinalWords(GrammaticalCase.Genitive));
     }
 
     [Theory]
@@ -338,6 +350,57 @@ public class LocaleRegistrySweepTests
         using var _ = new CultureSwap(new(localeName));
         var time = new TimeOnly(expected.Hours, expected.Minutes);
         Assert.Equal(expected.Expected, time.ToClockNotation());
+    }
+
+    [Theory]
+    [MemberData(nameof(LocaleCoverageData.TimeOnlyToClockNotation1323ExpectationTheoryData), MemberType = typeof(LocaleCoverageData))]
+    public void TimeOnlyToClockNotation_1323_ExplicitCulture_UsesExpectedForms(string localeName, ClockExpectationRow expected)
+    {
+        var time = new TimeOnly(expected.Hours, expected.Minutes);
+
+        Assert.Equal(expected.Expected, time.ToClockNotation(ClockNotationRounding.None, new(localeName)));
+    }
+
+    [Theory]
+    [InlineData("en-US", "one twenty-three")]
+    [InlineData("en-IN", "one twenty three")]
+    [InlineData("es-ES", "la una y veintitrés de la tarde")]
+    [InlineData("fr-FR", "treize heures vingt-trois")]
+    public void TimeOnlyToClockNotation_ResolvedCulture_DoesNotUseCurrentUiCulture(string localeName, string expected)
+    {
+        using var _ = new DistinctCultureSwap(new("en-US"), new("de-DE"));
+        var converter = Configurator.TimeOnlyToClockNotationConverters.ResolveForCulture(new(localeName));
+
+        Assert.Equal(expected, converter.Convert(new(13, 23), ClockNotationRounding.None));
+    }
+
+    [Fact]
+    public void TimeOnlyToClockNotation_ExplicitCulture_DoesNotUseCurrentUiCulture()
+    {
+        using var _ = new DistinctCultureSwap(new("en-US"), new("de-DE"));
+
+        Assert.Equal(
+            "twenty-five past one",
+            new TimeOnly(13, 23).ToClockNotation(ClockNotationRounding.NearestFiveMinutes, new("en-US")));
+    }
+
+    [Fact]
+    public void TimeOnlyToClockNotation_UnsupportedCulture_UsesEnglishFallback()
+    {
+        using var _ = new DistinctCultureSwap(new("en-US"), new("fr-FR"));
+
+        Assert.Equal(
+            "one twenty-three",
+            new TimeOnly(13, 23).ToClockNotation(ClockNotationRounding.None, new("eo")));
+    }
+
+    [Fact]
+    public void TimeOnlyToClockNotation_ExplicitCulture_ThrowsForNullCulture()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(
+            () => new TimeOnly(13, 23).ToClockNotation(ClockNotationRounding.None, null!));
+
+        Assert.Equal("culture", exception.ParamName);
     }
 
     [Theory]

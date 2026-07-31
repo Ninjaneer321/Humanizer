@@ -29,7 +29,25 @@ public sealed partial class HumanizerSourceGenerator
             "kilobyte",
             "megabyte",
             "gigabyte",
-            "terabyte"
+            "terabyte",
+            "petabyte",
+            "exabyte",
+            "pebibyte",
+            "kibibyte",
+            "mebibyte",
+            "gibibyte",
+            "tebibyte",
+            "decimalKilobyte",
+            "decimalMegabyte",
+            "decimalGigabyte",
+            "decimalTerabyte",
+            "decimalPetabyte",
+            "decimalExabyte",
+            "binaryKibibyte",
+            "binaryMebibyte",
+            "binaryGibibyte",
+            "binaryTebibyte",
+            "binaryPebibyte"
         ];
 
         readonly ImmutableArray<LocalePhraseCatalog> catalogs = catalogs;
@@ -106,6 +124,7 @@ public sealed partial class HumanizerSourceGenerator
         static string CreateLocalePhraseTableExpression(LocalePhraseCatalog catalog) =>
             "new LocalePhraseTable(" +
             QuoteOrNull(catalog.DateHumanize.Now) + ", " +
+            QuoteOrNull(catalog.DateHumanize.Today) + ", " +
             QuoteOrNull(catalog.DateHumanize.Never) + ", " +
             QuoteOrNull(catalog.TimeSpan.Zero) + ", " +
             QuoteOrNull(catalog.TimeSpan.Age) + ", " +
@@ -214,10 +233,12 @@ public sealed partial class HumanizerSourceGenerator
                 ? "null"
                 : "new LocalizedPhraseForms(" +
                   QuoteLiteral(forms.Default) + ", " +
+                  QuoteOrNull(forms.Zero) + ", " +
                   QuoteOrNull(forms.Singular) + ", " +
                   QuoteOrNull(forms.Dual) + ", " +
                   QuoteOrNull(forms.Paucal) + ", " +
-                  QuoteOrNull(forms.Plural) +
+                  QuoteOrNull(forms.Plural) + ", " +
+                  QuoteOrNull(forms.Many) +
                   ")";
 
         static string CreateTemplateExpression(NamedTemplatePhrase? template) =>

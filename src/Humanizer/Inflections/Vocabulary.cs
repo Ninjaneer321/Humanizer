@@ -1,8 +1,8 @@
 namespace Humanizer;
 
 /// <summary>
-/// A container for exceptions to simple pluralization/singularization rules.
-/// Vocabularies.Default contains an extensive list of rules for US English.
+/// A container for custom acronym casing and exceptions to simple pluralization/singularization rules.
+/// Vocabularies.Default contains an extensive list of rules for US English and supports process-wide acronym registration.
 /// At this time, multiple vocabularies and removing existing rules are not supported.
 /// </summary>
 public partial class Vocabulary
@@ -13,6 +13,7 @@ public partial class Vocabulary
 
     readonly List<Rule> plurals = [];
     readonly List<Rule> singulars = [];
+    readonly List<Rule> acronyms = [];
     readonly HashSet<string> uncountables = new(StringComparer.CurrentCultureIgnoreCase);
 
     private const string LetterSPattern = "^([sS])[sS]*$";
@@ -27,6 +28,32 @@ public partial class Vocabulary
 
     private static Regex LetterSRegex() => LetterSRegexField;
 #endif
+
+    /// <summary>
+    /// Adds an acronym whose casing should be preserved when humanizing strings.
+    /// </summary>
+    /// <param name="acronym">The letters in the acronym's canonical output casing, e.g. "HTML".</param>
+    /// <exception cref="ArgumentNullException"><paramref name="acronym"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="acronym"/> is empty or contains a non-letter.</exception>
+    public void AddAcronym(string acronym)
+    {
+        ArgumentNullException.ThrowIfNull(acronym);
+        if (acronym.Length == 0 || !acronym.All(char.IsLetter))
+        {
+            throw new ArgumentException("Acronym must contain only letters.", nameof(acronym));
+        }
+
+        lock (acronyms)
+        {
+            if (!acronyms.Any(rule => rule.IsFullMatch(acronym)))
+            {
+                acronyms.Add(new(
+                    $@"\b{Regex.Escape(acronym)}\b",
+                    acronym.Replace("$", "$$"),
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled));
+            }
+        }
+    }
 
     /// <summary>
     /// Adds a word to the vocabulary which cannot easily be pluralized/singularized by RegEx, e.g. "person" and "people".
@@ -73,6 +100,19 @@ public partial class Vocabulary
     public void AddSingular(string rule, string replacement) =>
         singulars.Add(new(rule, replacement));
 
+    internal void MarkRulesAsBuiltIn()
+    {
+        foreach (var rule in plurals)
+        {
+            rule.IsBuiltIn = true;
+        }
+
+        foreach (var rule in singulars)
+        {
+            rule.IsBuiltIn = true;
+        }
+    }
+
     /// <summary>
     /// Pluralizes the provided input considering irregular words
     /// </summary>
@@ -92,7 +132,13 @@ public partial class Vocabulary
             return s + "s";
         }
 
-        var result = ApplyRules(plurals, word, false);
+        var result = ApplyRules(plurals, word, false, out var wholeWordMatch);
+
+        var compoundHeadLength = CompoundHeadLength(word);
+        if (compoundHeadLength > 0 && !wholeWordMatch)
+        {
+            return Pluralize(word[..compoundHeadLength], inputIsKnownToBeSingular) + word[compoundHeadLength..];
+        }
 
         if (inputIsKnownToBeSingular)
         {
@@ -103,7 +149,7 @@ public partial class Vocabulary
         var asSingularAsPlural = ApplyRules(plurals, asSingular, false);
         if (asSingular != null &&
             asSingular != word &&
-            asSingular + "s" != word &&
+            !string.Equals(asSingular + "s", word, StringComparison.OrdinalIgnoreCase) &&
             asSingularAsPlural == word &&
             result != word)
         {
@@ -132,7 +178,13 @@ public partial class Vocabulary
             return s;
         }
 
-        var result = ApplyRules(singulars, word, skipSimpleWords);
+        var result = ApplyRules(singulars, word, skipSimpleWords, out var wholeWordMatch);
+
+        var compoundHeadLength = CompoundHeadLength(word);
+        if (compoundHeadLength > 0 && !wholeWordMatch)
+        {
+            return Singularize(word[..compoundHeadLength], inputIsKnownToBePlural, skipSimpleWords) + word[compoundHeadLength..];
+        }
 
         if (inputIsKnownToBePlural)
         {
@@ -142,7 +194,7 @@ public partial class Vocabulary
         // the Plurality is unknown so we should check all possibilities
         var asPlural = ApplyRules(plurals, word, false);
         if (asPlural == word ||
-            word + "s" == asPlural)
+            string.Equals(word + "s", asPlural, StringComparison.OrdinalIgnoreCase))
         {
             return result ?? word;
         }
@@ -159,6 +211,13 @@ public partial class Vocabulary
 
     string? ApplyRules(IList<Rule> rules, string? word, bool skipFirstRule)
     {
+        return ApplyRules(rules, word, skipFirstRule, out _);
+    }
+
+    string? ApplyRules(IList<Rule> rules, string? word, bool skipFirstRule, out bool wholeWordMatch)
+    {
+        wholeWordMatch = false;
+
         if (word == null)
         {
             return null;
@@ -171,6 +230,7 @@ public partial class Vocabulary
 
         if (IsUncountable(word))
         {
+            wholeWordMatch = true;
             return word;
         }
 
@@ -178,7 +238,7 @@ public partial class Vocabulary
         var end = skipFirstRule ? 1 : 0;
         for (var i = rules.Count - 1; i >= end; i--)
         {
-            if ((result = rules[i].Apply(word)) != null)
+            if ((result = rules[i].Apply(word, out wholeWordMatch)) != null)
             {
                 break;
             }
@@ -195,9 +255,138 @@ public partial class Vocabulary
     bool IsUncountable(string word) =>
         uncountables.Contains(word);
 
+    static int CompoundHeadLength(string word)
+    {
+        for (var i = 1; i < word.Length - 3; i++)
+        {
+            if (!IsHorizontalWhitespace(word[i - 1]) ||
+                word[i] is not ('p' or 'P') ||
+                word[i + 1] is not ('e' or 'E') ||
+                word[i + 2] is not ('r' or 'R') ||
+                !IsHorizontalWhitespace(word[i + 3]))
+            {
+                continue;
+            }
+
+            var headLength = i - 1;
+            while (headLength > 0 && IsHorizontalWhitespace(word[headLength - 1]))
+            {
+                headLength--;
+            }
+
+            var complementStart = i + 4;
+            while (complementStart < word.Length && IsHorizontalWhitespace(word[complementStart]))
+            {
+                complementStart++;
+            }
+
+            if (headLength > 0 && complementStart < word.Length && !EndsWithAs(word, headLength))
+            {
+                return headLength;
+            }
+        }
+
+        return 0;
+    }
+
+    static bool EndsWithAs(string word, int length) =>
+        length >= 2 &&
+        word[length - 2] is 'a' or 'A' &&
+        word[length - 1] is 's' or 'S' &&
+        (length == 2 || !char.IsLetterOrDigit(word[length - 3]));
+
+    static bool IsHorizontalWhitespace(char character) =>
+        character == '\t' || char.GetUnicodeCategory(character) == UnicodeCategory.SpaceSeparator;
+
+    internal string ApplyAcronyms(string input)
+    {
+        lock (acronyms)
+        {
+            foreach (var acronym in acronyms)
+            {
+                input = acronym.Apply(input, out _) ?? input;
+            }
+
+            return input;
+        }
+    }
+
+    internal string NormalizeAcronyms(string input)
+    {
+        lock (acronyms)
+        {
+            if (acronyms.Count == 0)
+            {
+                return input;
+            }
+
+            StringBuilder? result = null;
+            for (var index = 0; index < input.Length;)
+            {
+                Rule? match = null;
+                if (index == 0 ||
+                    !char.IsLetter(input[index - 1]) ||
+                    (char.IsLower(input[index - 1]) && char.IsUpper(input[index])) ||
+                    (result is { Length: > 0 } && result[^1] == ' '))
+                {
+                    foreach (var acronym in acronyms)
+                    {
+                        var end = index + acronym.Replacement.Length;
+                        if ((match == null || acronym.Replacement.Length > match.Replacement.Length) &&
+                            acronym.MatchesAt(input, index) &&
+                            (end == input.Length || !char.IsLetter(input[end]) || char.IsUpper(input[end])))
+                        {
+                            match = acronym;
+                        }
+                    }
+                }
+
+                if (match == null)
+                {
+                    result?.Append(input[index]);
+                    index++;
+                    continue;
+                }
+
+                if (result == null)
+                {
+                    result = new(input.Length);
+                    result.Append(input, 0, index);
+                }
+
+                if (index > 0 &&
+                    char.IsLetterOrDigit(input[index - 1]) &&
+                    result[^1] != ' ')
+                {
+                    result.Append(' ');
+                }
+
+                result.Append(match.Replacement.ToUpperInvariant());
+                index += match.Replacement.Length;
+                if (index < input.Length && char.IsLetterOrDigit(input[index]))
+                {
+                    result.Append(' ');
+                }
+            }
+
+            return result?.ToString() ?? input;
+        }
+    }
+
+    internal void RemoveAcronym(string acronym)
+    {
+        lock (acronyms)
+        {
+            acronyms.RemoveAll(rule => rule.IsFullMatch(acronym));
+        }
+    }
+
     static string MatchUpperCase(string word, string replacement) =>
-        char.IsUpper(word[0]) &&
-        char.IsLower(replacement[0]) ? StringHumanizeExtensions.Concat(char.ToUpper(replacement[0]), replacement.AsSpan(1)) : replacement;
+        word.Length > 1 && word.Any(char.IsUpper) && !word.Any(char.IsLower)
+            ? replacement.ToUpperInvariant()
+            : char.IsUpper(word[0]) && char.IsLower(replacement[0])
+                ? StringHumanizeExtensions.Concat(char.ToUpper(replacement[0]), replacement.AsSpan(1))
+                : replacement;
 
     /// <summary>
     /// If the word is the letter s, singular or plural, return the letter s singular
@@ -208,17 +397,37 @@ public partial class Vocabulary
         return s.Groups.Count > 1 ? s.Groups[1].Value : null;
     }
 
-    class Rule(string pattern, string replacement)
+    class Rule(
+        string pattern,
+        string replacement,
+        RegexOptions options = RegexOptions.IgnoreCase | RegexOptions.Compiled)
     {
-        readonly Regex regex = new(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        readonly Regex regex = new(pattern, options);
 
-        public string? Apply(string word)
+        public bool IsBuiltIn { get; set; }
+
+        public bool IsFullMatch(string word)
         {
-            if (!regex.IsMatch(word))
+            var match = regex.Match(word);
+            return match.Success && match.Index == 0 && match.Length == word.Length;
+        }
+
+        public bool MatchesAt(string word, int index) =>
+            index + replacement.Length <= word.Length &&
+            string.Compare(word, index, replacement, 0, replacement.Length, StringComparison.OrdinalIgnoreCase) == 0;
+
+        public string Replacement => replacement;
+
+        public string? Apply(string word, out bool wholeWordMatch)
+        {
+            var match = regex.Match(word);
+            if (!match.Success)
             {
+                wholeWordMatch = false;
                 return null;
             }
 
+            wholeWordMatch = !IsBuiltIn && match.Index == 0 && match.Length == word.Length;
             return regex.Replace(word, replacement);
         }
     }

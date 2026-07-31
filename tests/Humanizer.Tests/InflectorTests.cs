@@ -33,6 +33,82 @@ public class InflectorTests
         Assert.Equal(plural, singular.Pluralize());
 
     [Theory]
+    [InlineData("SINGULAR TYPE NAME", "SINGULAR TYPE NAMES")]
+    [InlineData("BUS", "BUSES")]
+    [InlineData("PERSON", "PEOPLE")]
+    public void InflectionsPreserveAllCaps(string singular, string plural)
+    {
+        Assert.Equal(plural, singular.Pluralize());
+        Assert.Equal(singular, plural.Singularize());
+        Assert.Equal(plural, singular.Pluralize(inputIsKnownToBeSingular: false));
+        Assert.Equal(plural, plural.Pluralize(inputIsKnownToBeSingular: false));
+        Assert.Equal(singular, singular.Singularize(inputIsKnownToBePlural: false));
+        Assert.Equal(singular, plural.Singularize(inputIsKnownToBePlural: false));
+    }
+
+    [Theory]
+    [InlineData("meter per second", "meters per second")]
+    [InlineData("nautical mile per hour", "nautical miles per hour")]
+    [InlineData("foot per second", "feet per second")]
+    [InlineData("Foot per Second", "Feet per Second")]
+    [InlineData("FOOT PER SECOND", "FEET PER SECOND")]
+    [InlineData("fish per hour", "fish per hour")]
+    [InlineData("(meter per second).", "(meters per second).")]
+    [InlineData("joule  PER\tmole per kelvin", "joules  PER\tmole per kelvin")]
+    [InlineData("meter\u00A0per\u00A0second", "meters\u00A0per\u00A0second")]
+    [InlineData("foot\u2009per\u2009second", "feet\u2009per\u2009second")]
+    [InlineData("request per customer", "requests per customer")]
+    [InlineData("meter per curves", "meters per curves")]
+    public void InflectsCompoundRates(string singular, string plural)
+    {
+        Assert.Equal(plural, singular.Pluralize());
+        Assert.Equal(singular, plural.Singularize());
+        Assert.Equal(plural, singular.Pluralize(inputIsKnownToBeSingular: false));
+        Assert.Equal(plural, plural.Pluralize(inputIsKnownToBeSingular: false));
+        Assert.Equal(singular, singular.Singularize(inputIsKnownToBePlural: false));
+        Assert.Equal(singular, plural.Singularize(inputIsKnownToBePlural: false));
+    }
+
+    [Theory]
+    [InlineData("as per request", "as per requests")]
+    [InlineData("meter/per/second", "meter/per/seconds")]
+    [InlineData("meter\nper\nsecond", "meter\nper\nseconds")]
+    public void DoesNotTreatUnstructuredPhrasesAsCompoundRates(string singular, string plural)
+    {
+        Assert.Equal(plural, singular.Pluralize());
+        Assert.Equal(singular, plural.Singularize());
+    }
+
+    [Fact]
+    public void SingularizingParenthesizedAsPerPhraseIsUnchanged() =>
+        Assert.Equal("(as per requests)", "(as per requests)".Singularize());
+
+    [Fact]
+    public void ExplicitPhraseRulesOverrideCompoundRateInflection()
+    {
+        var vocabulary = new Vocabulary();
+        vocabulary.AddPlural("meter per second", "meter rate units");
+        vocabulary.AddSingular("meters per second", "meters rate unit");
+
+        Assert.Equal("meter rate units", vocabulary.Pluralize("meter per second"));
+        Assert.Equal("meters rate unit", vocabulary.Singularize("meters per second"));
+    }
+
+    [Fact]
+    public void ExplicitUncountableCompoundRateIsPreserved()
+    {
+        var vocabulary = new Vocabulary();
+        vocabulary.AddUncountable("meter per second");
+
+        Assert.Equal("meter per second", vocabulary.Pluralize("meter per second"));
+        Assert.Equal("meter per second", vocabulary.Singularize("meter per second"));
+    }
+
+    [Fact, UseCulture("tr-TR")]
+    public void AllCapsInflectionsUseInvariantCasing() =>
+        Assert.Equal("CACTI", "CACTUS".Pluralize());
+
+    [Theory]
     [ClassData(typeof(PluralTestSource))]
     public void PluralizeWordsWithUnknownPlurality(string singular, string plural)
     {
@@ -61,6 +137,42 @@ public class InflectorTests
         Assert.Equal(singular, plural.Singularize(skipSimpleWords: true));
 
     [Theory]
+    [InlineData("abdomen")]
+    [InlineData("acumen")]
+    [InlineData("dolmen")]
+    [InlineData("hymen")]
+    [InlineData("lumen")]
+    [InlineData("omen")]
+    [InlineData("ramen")]
+    [InlineData("specimen")]
+    [InlineData("Specimen")]
+    [InlineData("Pacmen")]
+    public void SingularizeDoesNotRewriteUnrelatedWordsEndingInMen(string word)
+    {
+        Assert.Equal(word, word.Singularize());
+        Assert.Equal(word, word.Singularize(inputIsKnownToBePlural: false));
+    }
+
+    [Theory]
+    [InlineData("arrives", "arrive")]
+    [InlineData("drives", "drive")]
+    [InlineData("curves", "curve")]
+    [InlineData("behaves", "behave")]
+    [InlineData("survives", "survive")]
+    [InlineData("derives", "derive")]
+    [InlineData("knives", "knife")]
+    [InlineData("wives", "wife")]
+    [InlineData("leaves", "leaf")]
+    [InlineData("lives", "life")]
+    [InlineData("scarves", "scarf")]
+    [InlineData("hooves", "hoof")]
+    [InlineData("thieves", "thief")]
+    [InlineData("serves", "serve")]
+    [InlineData("solves", "solve")]
+    public void SingularizeVesEdgeCases(string plural, string expected) =>
+        Assert.Equal(expected, plural.Singularize());
+
+    [Theory]
     [InlineData("a")]
     [InlineData("A")]
     [InlineData("s")]
@@ -79,6 +191,7 @@ public class InflectorTests
     [InlineData("some-title: The beginning", "Some Title: The Beginning")]
     [InlineData("some_title:_the_beginning", "Some Title: the Beginning")]
     [InlineData("some title: The_beginning", "Some Title: The Beginning")]
+    [InlineData("thisIs3.5mmLong", "This Is 3.5mm Long")]
     public void Titleize(string input, string expectedOutput) =>
         Assert.Equal(expectedOutput, input.Titleize());
 
@@ -119,15 +232,27 @@ public class InflectorTests
     [InlineData("customer name $", "CustomerName$")]
     [InlineData("customer   name", "CustomerName")]
     [InlineData("customer-first-name", "CustomerFirstName")]
+    [InlineData("some-text-here", "SomeTextHere")]
+    [InlineData("some.text.here", "SomeTextHere")]
+    [InlineData("élan.über.", "ÉlanÜber")]
+    [InlineData("customer.name$", "CustomerName$")]
     [InlineData("_customer-first-name", "CustomerFirstName")]
     [InlineData(" customer__first--name", "CustomerFirstName")]
     public void Pascalize(string input, string expectedOutput) =>
         Assert.Equal(expectedOutput, input.Pascalize());
 
-    [Theory, UseCulture("tr-TR")]
-    [InlineData("istanbul_input", "İstanbulİnput")]
-    public void PascalizeUsesTurkishCasing(string input, string expectedOutput) =>
-        Assert.Equal(expectedOutput, input.Pascalize());
+    [Theory]
+    [InlineData("SMS parameter provider", "SmsParameterProvider")]
+    [InlineData("HTTP IO module", "HttpIoModule")]
+    [InlineData("HTTP.IO.module", "HttpIoModule")]
+    [InlineData("XMLHttpRequest", "XmlHttpRequest")]
+    [InlineData("CustomerName", "CustomerName")]
+    public void PascalizeNormalizesUppercaseSequences(string input, string expectedOutput) =>
+        Assert.Equal(expectedOutput, input.Pascalize(preserveUppercase: false));
+
+    [Fact]
+    public void PascalizePreservesUppercaseSequencesWhenRequested() =>
+        Assert.Equal("SMSParameterProvider", "SMS parameter provider".Pascalize(preserveUppercase: true));
 
     // Same as pascalize, except first char is lowercase
     [Theory]
@@ -141,14 +266,35 @@ public class InflectorTests
     [InlineData("customer name 1", "customerName1")]
     [InlineData("customer name $", "customerName$")]
     [InlineData("customer   name", "customerName")]
+    [InlineData("some-text-here", "someTextHere")]
+    [InlineData("some.text.here", "someTextHere")]
+    [InlineData("élan.über.", "élanÜber")]
     [InlineData("", "")]
+    [InlineData("_Name", "_name")]
+    [InlineData("__customer_name", "__customerName")]
+    [InlineData("__élan.über_name", "__élanÜberName")]
+    [InlineData("_", "_")]
+    [InlineData("___", "___")]
+    [InlineData("_Ägypten_name", "_ägyptenName")]
+    [InlineData("_\nÄ", "_\nÄ")]
     public void Camelize(string input, string expectedOutput) =>
         Assert.Equal(expectedOutput, input.Camelize());
 
-    [Theory, UseCulture("tr-TR")]
-    [InlineData("Istanbul_input", "ıstanbulİnput")]
-    public void CamelizeUsesTurkishCasing(string input, string expectedOutput) =>
-        Assert.Equal(expectedOutput, input.Camelize());
+    [Theory]
+    [InlineData("IOModule", "ioModule")]
+    [InlineData("XMLHttpRequest", "xmlHttpRequest")]
+    [InlineData("HTTP IO module", "httpIoModule")]
+    [InlineData("__HTTP.IO.module", "__httpIoModule")]
+    [InlineData("CustomerName", "customerName")]
+    [InlineData("_IOModule", "_ioModule")]
+    [InlineData("__IOModule", "__ioModule")]
+    [InlineData("-foo", "foo")]
+    [InlineData(" foo", "foo")]
+    [InlineData("__-IOModule", "__ioModule")]
+    [InlineData("_", "_")]
+    [InlineData("___", "___")]
+    public void ToCamelCaseNormalizesUppercaseSequences(string input, string expectedOutput) =>
+        Assert.Equal(expectedOutput, input.ToCamelCase());
 
     //Makes an underscored lowercase string
     [Theory]
@@ -159,13 +305,19 @@ public class InflectorTests
     [InlineData("SomeTitleThatWillBeUnderscored", "some_title_that_will_be_underscored")]
     [InlineData("SomeForeignWordsLikeÄgyptenÑu", "some_foreign_words_like_ägypten_ñu")]
     [InlineData("Some wordsTo be Underscored", "some_words_to_be_underscored")]
+    [InlineData("HTMLParserName", "html_parser_name")]
     public void Underscore(string input, string expectedOutput) =>
         Assert.Equal(expectedOutput, input.Underscore());
 
-    [Theory, UseCulture("tr-TR")]
-    [InlineData("IstanbulInput", "ıstanbul_ınput")]
-    public void UnderscoreUsesTurkishCasing(string input, string expectedOutput) =>
-        Assert.Equal(expectedOutput, input.Underscore());
+    [Theory]
+    [InlineData("SomeTitle", "Some_Title")]
+    [InlineData("HTMLParserName", "HTML_Parser_Name")]
+    [InlineData("SomeForeignWordsLikeÄgyptenÑu", "Some_Foreign_Words_Like_Ägypten_Ñu")]
+    [InlineData("Some title", "Some_title")]
+    [InlineData("Some-Title", "Some_Title")]
+    [InlineData("Some_Title", "Some_Title")]
+    public void UnderscorePreservesCaseWhenRequested(string input, string expectedOutput) =>
+        Assert.Equal(expectedOutput, input.Underscore(preserveCase: true));
 
     // transform words into lowercase and separate with a -
     [Theory]
@@ -177,10 +329,73 @@ public class InflectorTests
     public void Kebaberize(string input, string expectedOutput) =>
         Assert.Equal(expectedOutput, input.Kebaberize());
 
-    [Theory, UseCulture("tr-TR")]
-    [InlineData("IstanbulInput", "ıstanbul-ınput")]
-    public void KebaberizeUsesTurkishCasing(string input, string expectedOutput) =>
-        Assert.Equal(expectedOutput, input.Kebaberize());
+    [Theory]
+    [InlineData("cat", "cat's")]
+    [InlineData("boss", "boss's")]
+    [InlineData("James", "James's")]
+    [InlineData("CHRIS", "CHRIS's")]
+    [InlineData("fox", "fox's")]
+    [InlineData("O'Brien", "O'Brien's")]
+    [InlineData("Mary-Jane", "Mary-Jane's")]
+    [InlineData("", "")]
+    [InlineData("  ", "  ")]
+    public void ToPossessiveConvertsSingularNouns(string input, string expected) =>
+        Assert.Equal(expected, input.ToPossessive());
+
+    [Theory]
+    [InlineData("dogs", "dogs'")]
+    [InlineData("JONESES", "JONESES'")]
+    [InlineData("children", "children's")]
+    [InlineData("PEOPLE", "PEOPLE's")]
+    public void ToPossessiveConvertsPluralNouns(string input, string expected) =>
+        Assert.Equal(expected, input.ToPossessive(inputIsPlural: true));
+
+    [Theory]
+    [InlineData("James", "James'")]
+    [InlineData("CHRIS", "CHRIS'")]
+    public void ToPossessiveSupportsApostropheOnlyStyleForSingularNounsEndingInS(string input, string expected) =>
+        Assert.Equal(expected, input.ToPossessive(useApostropheOnlyForSingularWordsEndingInS: true));
+
+    [Fact]
+    public void ToPossessivePreservesNull()
+    {
+        string? input = null;
+
+        Assert.Null(input.ToPossessive());
+    }
+
+    [Fact, UseCulture("tr-TR")]
+    public void IdentifierTransformationsUseInvariantCasingInTurkish() =>
+        VerifyIdentifierTransformationsUseInvariantCasing();
+
+    [Fact, UseCulture("az-Latn-AZ")]
+    public void IdentifierTransformationsUseInvariantCasingInAzeri() =>
+        VerifyIdentifierTransformationsUseInvariantCasing();
+
+    static void VerifyIdentifierTransformationsUseInvariantCasing()
+    {
+        Assert.Equal("IWillBreakStuff", "i.will_break-stuff".Pascalize());
+        Assert.Equal("IoModule", "IO module".Pascalize(preserveUppercase: false));
+        Assert.Equal("iWillBreakStuff", "I.will_break-stuff".Camelize());
+        Assert.Equal("ioModule", "IO.module".ToCamelCase());
+        Assert.Equal("istanbul_input", "IstanbulInput".Underscore());
+        Assert.Equal("istanbul-input", "IstanbulInput".Kebaberize());
+
+        Assert.Equal("ÉlanInput", "élan_input".Pascalize());
+        Assert.Equal("élanInput", "Élan_input".Camelize());
+        Assert.Equal("élan_input", "ÉlanInput".Underscore());
+        Assert.Equal("élan-input", "ÉlanInput".Kebaberize());
+
+        Assert.Equal("İstanbulInput", "İstanbul_input".Pascalize());
+        Assert.Equal("İstanbulInput", "İstanbul_input".Camelize());
+        Assert.Equal("İstanbul_input", "İstanbulInput".Underscore());
+        Assert.Equal("İstanbul-input", "İstanbulInput".Kebaberize());
+
+        Assert.Equal("ıstanbulInput", "ıstanbul_input".Pascalize());
+        Assert.Equal("ıstanbulInput", "ıstanbul_input".Camelize());
+        Assert.Equal("ıstanbul_input", "ıstanbulInput".Underscore());
+        Assert.Equal("ıstanbul-input", "ıstanbulInput".Kebaberize());
+    }
 }
 
 class PluralTestSource : IEnumerable<object[]>
@@ -209,8 +424,14 @@ class PluralTestSource : IEnumerable<object[]>
         yield return ["index", "indices"];
 
         yield return ["wife", "wives"];
-        yield return ["safe", "saves"];
+        yield return ["knife", "knives"];
+        yield return ["life", "lives"];
+        yield return ["safe", "safes"];
+        yield return ["cafe", "cafes"];
+        yield return ["olive", "olives"];
         yield return ["half", "halves"];
+        yield return ["golf", "golfs"];
+        yield return ["turf", "turves"];
 
         yield return ["glove", "gloves"];
         yield return ["move", "moves"];
@@ -219,6 +440,9 @@ class PluralTestSource : IEnumerable<object[]>
         yield return ["person", "people"];
 
         yield return ["spokesman", "spokesmen"];
+        yield return ["policeman", "policemen"];
+        yield return ["businessman", "businessmen"];
+        yield return ["seaman", "seamen"];
         yield return ["man", "men"];
         yield return ["woman", "women"];
         yield return ["freshman", "freshmen"];
@@ -227,6 +451,7 @@ class PluralTestSource : IEnumerable<object[]>
         yield return ["personnel", "personnel"];
         yield return ["staff", "staff"];
         yield return ["training", "training"];
+        yield return ["software", "software"];
 
         yield return ["basis", "bases"];
         yield return ["diagnosis", "diagnoses"];
@@ -279,6 +504,13 @@ class PluralTestSource : IEnumerable<object[]>
         yield return ["matrix", "matrices"];
 
         yield return ["axis", "axes"];
+        yield return ["coordinate_axis", "coordinate_axes"];
+        yield return ["CoordinateAxis", "CoordinateAxes"];
+        yield return ["XMLAxis", "XMLAxes"];
+        yield return ["tax", "taxes"];
+        yield return ["fax", "faxes"];
+        yield return ["surtax", "surtaxes"];
+        yield return ["syntax", "syntaxes"];
         yield return ["testis", "testes"];
         yield return ["crisis", "crises"];
 

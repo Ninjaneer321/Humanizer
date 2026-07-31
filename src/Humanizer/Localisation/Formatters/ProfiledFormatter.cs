@@ -23,9 +23,19 @@ enum FormatterNumberDetectorKind
     ArabicLike,
 
     /// <summary>
+    /// Use the full Arabic cardinal categories, including modulo-100 few and many forms.
+    /// </summary>
+    ArabicCardinal,
+
+    /// <summary>
     /// Use a paucal form for values between two and four.
     /// </summary>
     Between2And4Paucal,
+
+    /// <summary>
+    /// Use the Polish paucal form for values ending in two through four, except twelve through fourteen.
+    /// </summary>
+    Polish,
 
     /// <summary>
     /// Use the South Slavic singular, paucal, and default rules.
@@ -59,6 +69,11 @@ enum FormatterNumberForm
     Default,
 
     /// <summary>
+    /// Use the zero form.
+    /// </summary>
+    Zero,
+
+    /// <summary>
     /// Use the singular form.
     /// </summary>
     Singular,
@@ -76,7 +91,12 @@ enum FormatterNumberForm
     /// <summary>
     /// Use the plural form.
     /// </summary>
-    Plural
+    Plural,
+
+    /// <summary>
+    /// Use the many form.
+    /// </summary>
+    Many
 }
 
 /// <summary>
@@ -162,7 +182,7 @@ enum FormatterTenseMask
 // Shared formatter kernel used whenever a locale can be expressed as declarative resource-key,
 // suffix, preposition, and gender-selection rules. The generator builds FormatterProfile
 // instances from locale-owned YAML so runtime formatting stays branch-light and parse-free.
-sealed class ProfiledFormatter(CultureInfo culture, FormatterProfile profile) : DefaultFormatter(culture)
+sealed class ProfiledFormatter(CultureInfo culture, FormatterProfile profile) : DefaultFormatter(culture), IFractionalTimeSpanFormatter
 {
     const char LuxembourgishEifelerSuffix = 'n';
     readonly FormatterProfile profile = profile;
@@ -171,9 +191,12 @@ sealed class ProfiledFormatter(CultureInfo culture, FormatterProfile profile) : 
     /// Converts numbers using a gender-aware rule when the profile provides one.
     /// </summary>
     protected override string NumberToWords(TimeUnit unit, int number, CultureInfo culture) =>
-        profile.UnitGenders.TryGetValue(unit, out var gender)
+        GetTimeUnitGender(unit) is { } gender
             ? number.ToWords(gender, culture)
             : base.NumberToWords(unit, number, culture);
+
+    internal override GrammaticalGender? GetTimeUnitGender(TimeUnit unit) =>
+        profile.UnitGenders.TryGetValue(unit, out var gender) ? gender : null;
 
     internal override FormatterNumberForm GetDatePhraseForm(TimeUnit unit, Tense tense, int number)
         => TryGetExactDateForm(unit, tense, number, out var form)
@@ -185,14 +208,149 @@ sealed class ProfiledFormatter(CultureInfo culture, FormatterProfile profile) : 
             ? form
             : DetectNumberForm(number, profile.PhraseDetector);
 
+    internal override FormatterNumberForm GetFractionalTimeSpanPhraseForm(
+        decimal seconds,
+        CardinalPluralCategory category) =>
+        profile.PhraseDetector switch
+        {
+            FormatterNumberDetectorKind.SingularPlural =>
+                category == CardinalPluralCategory.One
+                    ? FormatterNumberForm.Singular
+                    : FormatterNumberForm.Plural,
+            FormatterNumberDetectorKind.ArabicLike => category switch
+            {
+                CardinalPluralCategory.Two => FormatterNumberForm.Dual,
+                CardinalPluralCategory.Few => FormatterNumberForm.Plural,
+                CardinalPluralCategory.Many when seconds is >= 3 and <= 10 => FormatterNumberForm.Plural,
+                _ => FormatterNumberForm.Default
+            },
+            FormatterNumberDetectorKind.Between2And4Paucal => category switch
+            {
+                CardinalPluralCategory.One => FormatterNumberForm.Singular,
+                CardinalPluralCategory.Few => FormatterNumberForm.Paucal,
+                CardinalPluralCategory.Many => FormatterNumberForm.Plural,
+                _ => FormatterNumberForm.Default
+            },
+            FormatterNumberDetectorKind.Polish => category switch
+            {
+                CardinalPluralCategory.One => FormatterNumberForm.Singular,
+                CardinalPluralCategory.Few => FormatterNumberForm.Paucal,
+                _ => FormatterNumberForm.Default
+            },
+            FormatterNumberDetectorKind.SouthSlavic or FormatterNumberDetectorKind.Russian => category switch
+            {
+                CardinalPluralCategory.One => FormatterNumberForm.Singular,
+                CardinalPluralCategory.Few => FormatterNumberForm.Paucal,
+                _ => FormatterNumberForm.Default
+            },
+            FormatterNumberDetectorKind.Slovenian => category switch
+            {
+                CardinalPluralCategory.One => FormatterNumberForm.Singular,
+                CardinalPluralCategory.Two => FormatterNumberForm.Dual,
+                CardinalPluralCategory.Few => FormatterNumberForm.Paucal,
+                _ => FormatterNumberForm.Default
+            },
+            FormatterNumberDetectorKind.Lithuanian => category switch
+            {
+                CardinalPluralCategory.One => FormatterNumberForm.Singular,
+                CardinalPluralCategory.Few => FormatterNumberForm.Default,
+                _ => FormatterNumberForm.Plural
+            },
+            _ => base.GetFractionalTimeSpanPhraseForm(seconds, category)
+        };
+
+    internal override FormatterNumberForm GetCaseAwareTimeSpanPhraseForm(TimeUnit unit, int number)
+        => TryGetExactTimeSpanForm(unit, number, out var form)
+            ? form
+            : DetectNumberForm(
+                number,
+                profile.CaseTimeSpanDetector == FormatterNumberDetectorKind.None
+                    ? profile.PhraseDetector
+                    : profile.CaseTimeSpanDetector);
+
     internal override FormatterNumberForm GetDataUnitPhraseForm(DataUnit dataUnit, double count) =>
-        DetectDataUnitForm(count, profile.DataUnitDetector, profile.DataUnitNonIntegralForm);
+        profile.DataUnitDetector == FormatterNumberDetectorKind.None &&
+        dataUnit is >= DataUnit.DecimalKilobyte and <= DataUnit.BinaryPebibyte
+            ? base.GetDataUnitPhraseForm(dataUnit, count)
+            : DetectDataUnitForm(count, profile.DataUnitDetector, profile.DataUnitNonIntegralForm);
+
+    internal override FormatterNumberForm GetDataUnitPhraseForm(
+        DataUnit dataUnit,
+        decimal count,
+        CardinalPluralCategory category) =>
+        profile.DataUnitDetector switch
+        {
+            FormatterNumberDetectorKind.None =>
+                category == CardinalPluralCategory.One ? FormatterNumberForm.Singular : FormatterNumberForm.Default,
+            FormatterNumberDetectorKind.SingularPlural =>
+                category == CardinalPluralCategory.One ? FormatterNumberForm.Singular : FormatterNumberForm.Plural,
+            FormatterNumberDetectorKind.ArabicLike => category switch
+            {
+                CardinalPluralCategory.One when count == 1 => FormatterNumberForm.Singular,
+                CardinalPluralCategory.Two => FormatterNumberForm.Dual,
+                CardinalPluralCategory.Few => FormatterNumberForm.Plural,
+                CardinalPluralCategory.Many when count is >= 3 and <= 10 => FormatterNumberForm.Plural,
+                _ => FormatterNumberForm.Default
+            },
+            FormatterNumberDetectorKind.Between2And4Paucal => category switch
+            {
+                CardinalPluralCategory.One => FormatterNumberForm.Singular,
+                CardinalPluralCategory.Few => FormatterNumberForm.Paucal,
+                CardinalPluralCategory.Many => FormatterNumberForm.Plural,
+                _ => FormatterNumberForm.Default
+            },
+            FormatterNumberDetectorKind.Polish => category switch
+            {
+                CardinalPluralCategory.One => FormatterNumberForm.Singular,
+                CardinalPluralCategory.Few => FormatterNumberForm.Paucal,
+                _ => FormatterNumberForm.Default
+            },
+            FormatterNumberDetectorKind.SouthSlavic or FormatterNumberDetectorKind.Russian => category switch
+            {
+                CardinalPluralCategory.One => FormatterNumberForm.Singular,
+                CardinalPluralCategory.Few => FormatterNumberForm.Paucal,
+                _ => FormatterNumberForm.Default
+            },
+            FormatterNumberDetectorKind.Slovenian => category switch
+            {
+                CardinalPluralCategory.One => FormatterNumberForm.Singular,
+                CardinalPluralCategory.Two => FormatterNumberForm.Dual,
+                CardinalPluralCategory.Few => FormatterNumberForm.Paucal,
+                _ => FormatterNumberForm.Default
+            },
+            FormatterNumberDetectorKind.Lithuanian => category switch
+            {
+                CardinalPluralCategory.One => FormatterNumberForm.Singular,
+                CardinalPluralCategory.Few => FormatterNumberForm.Default,
+                _ => FormatterNumberForm.Plural
+            },
+            _ => throw new UnreachableException()
+        };
+
+    internal override string GetDataUnitPhrasePrefix(
+        DataUnit dataUnit,
+        decimal count,
+        CardinalPluralCategory category) =>
+        profile.PrepositionMode == FormatterPrepositionMode.RomanianDe &&
+        (dataUnit is DataUnit.Bit or DataUnit.Byte ||
+         dataUnit is >= DataUnit.DecimalKilobyte and <= DataUnit.BinaryPebibyte) &&
+        ShouldUseRomanianPreposition(count)
+            ? "de "
+            : string.Empty;
 
     internal override string ResolveDatePhraseForms(LocalizedPhraseForms forms, FormatterNumberForm form) =>
         ResolveProfiledPhraseForms(forms, form, profile.PhraseDetector);
 
     internal override string ResolveTimeSpanPhraseForms(LocalizedPhraseForms forms, FormatterNumberForm form) =>
         ResolveProfiledPhraseForms(forms, form, profile.PhraseDetector);
+
+    internal override string ResolveCaseAwareTimeSpanPhraseForms(LocalizedPhraseForms forms, FormatterNumberForm form) =>
+        ResolveProfiledPhraseForms(
+            forms,
+            form,
+            profile.CaseTimeSpanDetector == FormatterNumberDetectorKind.None
+                ? profile.PhraseDetector
+                : profile.CaseTimeSpanDetector);
 
     internal override string ResolveDataUnitPhraseForms(LocalizedPhraseForms forms, FormatterNumberForm form) =>
         ResolveProfiledPhraseForms(forms, form, profile.DataUnitDetector);
@@ -211,6 +369,12 @@ sealed class ProfiledFormatter(CultureInfo culture, FormatterProfile profile) : 
     internal override bool ShouldAppendImplicitDataUnitPluralSuffix(DataUnit dataUnit, double count, FormatterNumberForm form, LocalizedPhraseForms forms, PhraseTemplate? template) =>
         base.ShouldAppendImplicitDataUnitPluralSuffix(dataUnit, count, form, forms, template);
 
+    internal override bool ShouldAppendImplicitDataUnitPluralSuffixExact(
+        FormatterNumberForm form,
+        LocalizedPhraseForms forms) =>
+        profile.DataUnitDetector == FormatterNumberDetectorKind.None &&
+        base.ShouldAppendImplicitDataUnitPluralSuffixExact(form, forms);
+
     internal override string TransformDataUnitResult(DataUnit dataUnit, double count, FormatterNumberForm form, string result, LocalizedPhraseForms forms, PhraseTemplate? template) =>
         profile.DataUnitFallbackTransform == FormatterDataUnitFallbackTransform.None ||
         profile.DataUnitDetector != FormatterNumberDetectorKind.None
@@ -220,7 +384,7 @@ sealed class ProfiledFormatter(CultureInfo culture, FormatterProfile profile) : 
     internal override string GetDatePhraseSecondaryPlaceholder(TimeUnit unit, Tense tense, int count) =>
         GetSecondaryPlaceholder(unit, count);
 
-    internal override string GetTimeSpanPhraseSecondaryPlaceholder(TimeUnit unit, int count, bool toWords) =>
+    internal override string GetTimeSpanPhraseSecondaryPlaceholder(TimeUnit unit, decimal count, bool toWords) =>
         GetSecondaryPlaceholder(unit, count);
 
     /// <summary>
@@ -242,7 +406,7 @@ sealed class ProfiledFormatter(CultureInfo culture, FormatterProfile profile) : 
     /// <summary>
     /// Detects the grammatical form for integer counts.
     /// </summary>
-    static FormatterNumberForm DetectNumberForm(int number, FormatterNumberDetectorKind detector)
+    internal static FormatterNumberForm DetectNumberForm(int number, FormatterNumberDetectorKind detector)
     {
         var absoluteNumber = Math.Abs(number);
 
@@ -257,12 +421,22 @@ sealed class ProfiledFormatter(CultureInfo culture, FormatterProfile profile) : 
                 >= 3 and <= 10 => FormatterNumberForm.Plural,
                 _ => FormatterNumberForm.Default
             },
+            FormatterNumberDetectorKind.ArabicCardinal => absoluteNumber switch
+            {
+                0 => FormatterNumberForm.Zero,
+                1 => FormatterNumberForm.Singular,
+                2 => FormatterNumberForm.Dual,
+                _ when absoluteNumber % 100 is >= 3 and <= 10 => FormatterNumberForm.Plural,
+                _ when absoluteNumber % 100 is >= 11 and <= 99 => FormatterNumberForm.Many,
+                _ => FormatterNumberForm.Default
+            },
             FormatterNumberDetectorKind.Between2And4Paucal => absoluteNumber switch
             {
                 1 => FormatterNumberForm.Singular,
                 > 1 and < 5 => FormatterNumberForm.Paucal,
                 _ => FormatterNumberForm.Default
             },
+            FormatterNumberDetectorKind.Polish => DetectPolishForm(absoluteNumber),
             FormatterNumberDetectorKind.SouthSlavic => DetectSouthSlavicForm(absoluteNumber),
             FormatterNumberDetectorKind.Slovenian => absoluteNumber switch
             {
@@ -287,7 +461,7 @@ sealed class ProfiledFormatter(CultureInfo culture, FormatterProfile profile) : 
         };
     }
 
-    static string ResolveProfiledPhraseForms(LocalizedPhraseForms forms, FormatterNumberForm form, FormatterNumberDetectorKind detector) =>
+    internal static string ResolveProfiledPhraseForms(LocalizedPhraseForms forms, FormatterNumberForm form, FormatterNumberDetectorKind detector) =>
         detector switch
         {
             FormatterNumberDetectorKind.Between2And4Paucal or FormatterNumberDetectorKind.SouthSlavic => form switch
@@ -309,6 +483,13 @@ sealed class ProfiledFormatter(CultureInfo culture, FormatterProfile profile) : 
             },
             _ => forms.Resolve(form)
         };
+
+    static FormatterNumberForm DetectPolishForm(int absoluteNumber) =>
+        absoluteNumber % 10 is > 1 and < 5 && absoluteNumber % 100 is not 12 and not 13 and not 14
+            ? FormatterNumberForm.Paucal
+            : absoluteNumber == 1
+                ? FormatterNumberForm.Singular
+                : FormatterNumberForm.Default;
 
     /// <summary>
     /// Detects the South Slavic singular and paucal forms.
@@ -376,20 +557,28 @@ sealed class ProfiledFormatter(CultureInfo culture, FormatterProfile profile) : 
     /// <summary>
     /// Determines whether Romanian needs the <c>de</c> preposition for the current value.
     /// </summary>
-    static bool ShouldUseRomanianPreposition(int number)
+    static bool ShouldUseRomanianPreposition(decimal number)
     {
         var numeral = Math.Abs(number % 100);
         return numeral is < 1 or > 19;
     }
 
-    string GetSecondaryPlaceholder(TimeUnit unit, int number) =>
+    string GetSecondaryPlaceholder(TimeUnit unit, decimal number) =>
         (profile.PrepositionMode, profile.SecondaryPlaceholderMode) switch
         {
             (FormatterPrepositionMode.None, FormatterSecondaryPlaceholderMode.None) => string.Empty,
             (FormatterPrepositionMode.RomanianDe, FormatterSecondaryPlaceholderMode.None) =>
                 ShouldUseRomanianPreposition(number) ? " de" : string.Empty,
             (FormatterPrepositionMode.None, FormatterSecondaryPlaceholderMode.LuxembourgishEifelerN) =>
-                EifelerRule.DoesApply(NumberToWords(unit, number, Culture).AsSpan()) ? string.Empty : LuxembourgishEifelerSuffix.ToString(),
+                EifelerRule.DoesApply(
+                    NumberToWords(
+                        unit,
+                        number >= int.MaxValue
+                            ? int.MaxValue
+                            : decimal.ToInt32(decimal.Truncate(number)),
+                        Culture).AsSpan())
+                    ? string.Empty
+                    : LuxembourgishEifelerSuffix.ToString(),
             _ => throw new UnreachableException()
         };
 
@@ -426,6 +615,7 @@ sealed record FormatterProfile
     /// <param name="prepositionMode">The mode that controls locale-specific preposition placeholders.</param>
     /// <param name="secondaryPlaceholderMode">The mode that controls locale-specific secondary placeholders.</param>
     /// <param name="unitGenders">Optional grammatical genders used when converting units to words.</param>
+    /// <param name="caseTimeSpanDetector">The detector used only for grammatical-case duration phrases.</param>
     public FormatterProfile(
         FormatterNumberDetectorKind phraseDetector,
         FormatterDateFormRule[] exactDateForms,
@@ -435,7 +625,8 @@ sealed record FormatterProfile
         FormatterDataUnitFallbackTransform dataUnitFallbackTransform,
         FormatterPrepositionMode prepositionMode,
         FormatterSecondaryPlaceholderMode secondaryPlaceholderMode,
-        FrozenDictionary<TimeUnit, GrammaticalGender>? unitGenders = null)
+        FrozenDictionary<TimeUnit, GrammaticalGender>? unitGenders = null,
+        FormatterNumberDetectorKind caseTimeSpanDetector = FormatterNumberDetectorKind.None)
     {
         PhraseDetector = phraseDetector;
         ExactDateForms = exactDateForms;
@@ -446,6 +637,7 @@ sealed record FormatterProfile
         PrepositionMode = prepositionMode;
         SecondaryPlaceholderMode = secondaryPlaceholderMode;
         UnitGenders = unitGenders ?? FrozenDictionary<TimeUnit, GrammaticalGender>.Empty;
+        CaseTimeSpanDetector = caseTimeSpanDetector;
     }
 
     /// <summary>
@@ -492,6 +684,11 @@ sealed record FormatterProfile
     /// Gets the optional grammatical genders used when converting units to words.
     /// </summary>
     public FrozenDictionary<TimeUnit, GrammaticalGender> UnitGenders { get; }
+
+    /// <summary>
+    /// Gets the detector used only for grammatical-case duration phrases.
+    /// </summary>
+    public FormatterNumberDetectorKind CaseTimeSpanDetector { get; }
 }
 
 /// <summary>

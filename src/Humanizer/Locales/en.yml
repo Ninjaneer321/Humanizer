@@ -1,12 +1,28 @@
 locale: 'en'
 
 surfaces:
+  inflection:
+    cardinalRule: 'EnglishLike'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'en grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'oxford'
 
   phrases:
     relativeDate:
       now: 'now'
+      today: 'today'
       never: 'never'
       past:
         millisecond:
@@ -201,6 +217,60 @@ surfaces:
       terabyte:
         forms: 'terabyte'
         symbol: 'TB'
+      decimalKilobyte:
+        forms: 'kilobyte'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms: 'megabyte'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms: 'gigabyte'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms: 'terabyte'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms: 'petabyte'
+        symbol: 'PB'
+      decimalExabyte:
+        forms: 'exabyte'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms: 'kibibyte'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms: 'mebibyte'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms: 'gibibyte'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms: 'tebibyte'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms: 'pebibyte'
+        symbol: 'PiB'
+      petabyte:
+        forms: 'petabyte'
+        symbol: 'PB'
+      exabyte:
+        forms: 'exabyte'
+        symbol: 'EB'
+      pebibyte:
+        forms: 'pebibyte'
+        symbol: 'PiB'
+      kibibyte:
+        forms: 'kibibyte'
+        symbol: 'KiB'
+      mebibyte:
+        forms: 'mebibyte'
+        symbol: 'MiB'
+      gibibyte:
+        forms: 'gibibyte'
+        symbol: 'GiB'
+      tebibyte:
+        forms: 'tebibyte'
+        symbol: 'TiB'
     timeUnits:
       millisecond:
         symbol: 'ms'
@@ -337,6 +407,7 @@ surfaces:
         1000: 'milluple'
 
     parse:
+      decimalMarker: 'point'
       engine: 'token-map'
       normalizationProfile: 'LowercaseRemovePeriods'
       cardinalMap:

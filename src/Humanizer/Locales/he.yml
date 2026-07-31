@@ -1,6 +1,21 @@
 locale: 'he'
 
 surfaces:
+  inflection:
+    cardinalRule: 'Hebrew'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'he grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'clitic'
     value: 'ו'
@@ -280,6 +295,61 @@ surfaces:
         forms:
           default: 'טרהבייטים'
         symbol: 'TB'
+      decimalKilobyte:
+        forms:
+          default: 'קילובייטים'
+          singular: 'קילובייט'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms:
+          default: 'מגהבייטים'
+          singular: 'מגהבייט'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms:
+          default: 'גיגהבייטים'
+          singular: 'גיגהבייט'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms:
+          default: 'טרהבייטים'
+          singular: 'טרהבייט'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms:
+          default: 'פטה-בייטים'
+          singular: 'פטה-בייט'
+        symbol: 'PB'
+      decimalExabyte:
+        forms:
+          default: 'אקסה-בייטים'
+          singular: 'אקסה-בייט'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms:
+          default: 'קיביבייטים'
+          singular: 'קיביבייט'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms:
+          default: 'מביבייטים'
+          singular: 'מביבייט'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms:
+          default: 'גיביבייטים'
+          singular: 'גיביבייט'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms:
+          default: 'טביבייטים'
+          singular: 'טביבייט'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms:
+          default: 'פביבייטים'
+          singular: 'פביבייט'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'מילישנייה'
@@ -365,6 +435,7 @@ surfaces:
           countGender: 'masculine'
 
     parse:
+      decimalMarker: 'נקודה'
       engine: 'token-map'
       normalizationProfile: 'punctuation-to-spaces-remove-diacritics'
       allowInvariantIntegerInput: true

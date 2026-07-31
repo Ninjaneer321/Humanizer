@@ -1,6 +1,10 @@
 [UseCulture("en-US")]
 public class OrdinalizeTests
 {
+    public static IEnumerable<object[]> ShippedLocaleRows =>
+        Humanizer.Tests.Localisation.LocaleCoverageData.ShippedLocales
+            .Select(static localeName => new object[] { localeName });
+
     [Theory]
     [InlineData("0", "0th")]
     [InlineData("1", "1st")]
@@ -64,6 +68,78 @@ public class OrdinalizeTests
     [InlineData(1001, "1001st")]
     public void OrdinalizeNumber(int number, string ordinalized) =>
         Assert.Equal(number.Ordinalize(), ordinalized);
+
+    [Theory]
+    [InlineData(2_147_483_651L, "2147483651st")]
+    [InlineData(-2_147_483_651L, "-2147483651st")]
+    [InlineData(long.MinValue, "-9223372036854775808th")]
+    public void OrdinalizeLongNumber(long number, string ordinalized) =>
+        Assert.Equal(number.Ordinalize(), ordinalized);
+
+    [Fact]
+    public void OrdinalizeLongNumberUsesCultureSpecificRules()
+    {
+        const long number = 4_294_967_297;
+
+        Assert.Equal("4294967297ème", number.Ordinalize(new CultureInfo("fr-FR")));
+        Assert.Equal(
+            "2147483651.er",
+            2_147_483_651L.Ordinalize(
+                GrammaticalGender.Masculine,
+                new CultureInfo("es-ES"),
+                WordForm.Abbreviation));
+    }
+
+    [Theory]
+    [MemberData(nameof(ShippedLocaleRows))]
+    public void OrdinalizeLongNumberMatchesIntOverloadForEverySupportedLocale(string localeName)
+    {
+        var culture = new CultureInfo(localeName);
+
+        Assert.Equal(21.Ordinalize(culture), 21L.Ordinalize(culture));
+    }
+
+    [Fact]
+    public void OrdinalizeLongMinValueUsesCultureSpecificRules()
+    {
+        Assert.Equal(
+            "9223372036854775808.º",
+            long.MinValue.Ordinalize(new CultureInfo("es-ES"), WordForm.Normal));
+        Assert.Equal(
+            "9223372036854775808è",
+            long.MinValue.Ordinalize(new CultureInfo("ca-ES")));
+    }
+
+    [Fact]
+    public void OrdinalizeLongNumberUsesNumberWordSuffixFallback()
+    {
+        const long number = 2_147_483_648;
+        var culture = new CultureInfo("hi-IN");
+
+        Assert.Equal(
+            number.ToWords(GrammaticalGender.Masculine, culture) + "वाँ",
+            number.Ordinalize(GrammaticalGender.Masculine, culture));
+    }
+
+    [Fact]
+    public void OrdinalizeLongOverloads()
+    {
+        const long number = 2_147_483_651;
+        var culture = new CultureInfo("en-US");
+
+        Assert.Equal("2147483651st", number.Ordinalize());
+        Assert.Equal("2147483651st", number.Ordinalize(WordForm.Normal));
+        Assert.Equal("2147483651st", number.Ordinalize(culture));
+        Assert.Equal("2147483651st", number.Ordinalize(culture, WordForm.Normal));
+        Assert.Equal("2147483651st", number.Ordinalize(GrammaticalGender.Masculine));
+        Assert.Equal("2147483651st", number.Ordinalize(GrammaticalGender.Masculine, WordForm.Normal));
+        Assert.Equal("2147483651st", number.Ordinalize(GrammaticalGender.Masculine, culture));
+        Assert.Equal("2147483651st", number.Ordinalize(GrammaticalGender.Masculine, culture, WordForm.Normal));
+    }
+
+    [Fact]
+    public void OrdinalizeStringRemainsIntBounded() =>
+        Assert.Throws<OverflowException>(() => "2147483648".Ordinalize());
 
     [Theory]
     [InlineData(0)]

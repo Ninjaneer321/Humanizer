@@ -1,6 +1,21 @@
 locale: 'ig'
 
 surfaces:
+  inflection:
+    cardinalRule: 'Other'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'ig grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'na'
@@ -205,6 +220,50 @@ surfaces:
         forms:
           default: 'terabaita'
         symbol: 'TB'
+      decimalKilobyte:
+        forms:
+          default: 'kilobaịt'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms:
+          default: 'megabaịt'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms:
+          default: 'jigabaịt'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms:
+          default: 'terabaịt'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms:
+          default: 'petabaịt'
+        symbol: 'PB'
+      decimalExabyte:
+        forms:
+          default: 'eksabaịt'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms:
+          default: 'kibibaịt'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms:
+          default: 'mebibaịt'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms:
+          default: 'gibibaịt'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms:
+          default: 'tebibaịt'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms:
+          default: 'pebibaịt'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'ms'
@@ -328,6 +387,7 @@ surfaces:
       groupSeparator: ','
       negativeSign: '-'
     parse:
+      decimalMarker: '.'
       engine: 'greedy-compound'
       ordinalNumberToWordsKind: 'self'
       negativePrefixes:

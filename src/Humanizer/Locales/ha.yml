@@ -1,6 +1,21 @@
 locale: 'ha'
 
 surfaces:
+  inflection:
+    cardinalRule: 'One'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'ha grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'conjunction'
     value: 'da'
@@ -205,6 +220,39 @@ surfaces:
         forms:
           default: 'terabaiti'
         symbol: 'TB'
+      decimalKilobyte:
+        forms: 'kilobaiti'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms: 'megabaiti'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms: 'gigabaiti'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms: 'terabaiti'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms: 'petabaiti'
+        symbol: 'PB'
+      decimalExabyte:
+        forms: 'eksabaiti'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms: 'kibibaiti'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms: 'mebibaiti'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms: 'gibibaiti'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms: 'tebibaiti'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms: 'pebibaiti'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'ms'
@@ -302,6 +350,7 @@ surfaces:
       groupSeparator: ','
       negativeSign: '-'
     parse:
+      decimalMarker: '.'
       engine: 'scale-leading-compound'
       conjunctionWord: 'da'
       terminalRemainderConjunctionWord: 'da kuma'

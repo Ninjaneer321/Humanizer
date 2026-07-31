@@ -3,7 +3,7 @@ namespace Humanizer;
 /// <summary>
 /// Provides a configuration point for Humanizer
 /// </summary>
-public static class Configurator
+public static partial class Configurator
 {
     /// <summary>
     /// A registry of formatters used to format collections based on the current locale
@@ -24,6 +24,12 @@ public static class Configurator
     /// A registry of converters that transform words into numbers for the active locale, falling back to English when a locale-specific parser is unavailable.
     /// </summary>
     private static LocaliserRegistry<IWordsToNumberConverter> WordsToNumberConverters { get; } = new WordsToNumberConverterRegistry();
+
+    /// <summary>
+    /// A registry of converters that transform decimal number words into numeric values for the active locale.
+    /// </summary>
+    private static LocaliserRegistry<IWordsToDecimalNumberConverter> WordsToDecimalNumberConverters { get; } =
+        new WordsToDecimalNumberConverterRegistry();
 
     /// <summary>
     /// A registry of ordinalizers used to localise Ordinalize method
@@ -47,44 +53,47 @@ public static class Configurator
     public static LocaliserRegistry<ITimeOnlyToClockNotationConverter> TimeOnlyToClockNotationConverters { get; } = new TimeOnlyToClockNotationConvertersRegistry();
 #endif
 
-    internal static ICollectionFormatter CollectionFormatter => CollectionFormatters.ResolveForUiCulture();
+    internal static ICollectionFormatter CollectionFormatter => CollectionFormatters.ResolveForCulture(null);
 
     /// <summary>
     /// The formatter to be used
     /// </summary>
-    /// <param name="culture">The culture to retrieve formatter for. Null means that current thread's UI culture should be used.</param>
+    /// <param name="culture">The culture to retrieve formatter for. Null means that current thread's culture should be used.</param>
     internal static IFormatter GetFormatter(CultureInfo? culture) =>
         Formatters.ResolveForCulture(culture);
 
     /// <summary>
     /// The converter to be used
     /// </summary>
-    /// <param name="culture">The culture to retrieve number to words converter for. Null means that current thread's UI culture should be used.</param>
+    /// <param name="culture">The culture to retrieve number to words converter for. Null means that current thread's culture should be used.</param>
     internal static INumberToWordsConverter GetNumberToWordsConverter(CultureInfo? culture) =>
         NumberToWordsConverters.ResolveForCulture(culture);
 
     internal static IWordsToNumberConverter GetWordsToNumberConverter(CultureInfo culture) =>
         WordsToNumberConverters.ResolveForCulture(culture);
 
+    internal static IWordsToDecimalNumberConverter GetWordsToDecimalNumberConverter(CultureInfo culture) =>
+        WordsToDecimalNumberConverters.ResolveForCulture(culture);
 
 
-    /// <summary>
-    /// The ordinalizer to be used
-    /// </summary>
-    internal static IOrdinalizer Ordinalizer => Ordinalizers.ResolveForUiCulture();
 
     /// <summary>
     /// The ordinalizer to be used
     /// </summary>
-    internal static IDateToOrdinalWordConverter DateToOrdinalWordsConverter => DateToOrdinalWordsConverters.ResolveForUiCulture();
+    internal static IOrdinalizer Ordinalizer => Ordinalizers.ResolveForCulture(null);
+
+    /// <summary>
+    /// The ordinalizer to be used
+    /// </summary>
+    internal static IDateToOrdinalWordConverter DateToOrdinalWordsConverter => DateToOrdinalWordsConverters.ResolveForCulture(null);
 
 #if NET6_0_OR_GREATER
     /// <summary>
     /// The ordinalizer to be used
     /// </summary>
-    internal static IDateOnlyToOrdinalWordConverter DateOnlyToOrdinalWordsConverter => DateOnlyToOrdinalWordsConverters.ResolveForUiCulture();
+    internal static IDateOnlyToOrdinalWordConverter DateOnlyToOrdinalWordsConverter => DateOnlyToOrdinalWordsConverters.ResolveForCulture(null);
 
-    internal static ITimeOnlyToClockNotationConverter TimeOnlyToClockNotationConverter => TimeOnlyToClockNotationConverters.ResolveForUiCulture();
+    internal static ITimeOnlyToClockNotationConverter TimeOnlyToClockNotationConverter => TimeOnlyToClockNotationConverters.ResolveForCulture(null);
 #endif
 
     /// <summary>
@@ -106,6 +115,16 @@ public static class Configurator
     /// In production applications, avoid changing this value after the application has started serving requests.
     /// </remarks>
     public static IDateTimeOffsetHumanizeStrategy DateTimeOffsetHumanizeStrategy { get; set; } = new DefaultDateTimeOffsetHumanizeStrategy();
+
+    /// <summary>
+    /// The strategy used by the <see cref="TimeSpan"/> humanization extension methods.
+    /// </summary>
+    /// <remarks>
+    /// This property should be set only once during application startup before any humanization operations occur.
+    /// For thread-safety, use volatile reads or appropriate synchronization when accessing this property in multi-threaded scenarios.
+    /// In production applications, avoid changing this value after the application has started serving requests.
+    /// </remarks>
+    public static ITimeSpanHumanizeStrategy TimeSpanHumanizeStrategy { get; set; } = new DefaultTimeSpanHumanizeStrategy();
 
 #if NET6_0_OR_GREATER
     /// <summary>

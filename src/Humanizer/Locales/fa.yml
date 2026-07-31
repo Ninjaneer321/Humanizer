@@ -1,6 +1,21 @@
 locale: 'fa'
 
 surfaces:
+  inflection:
+    cardinalRule: 'AmharicLike'
+  durationCases:
+    classification: 'not-applicable'
+    sources:
+      cldr48:
+        kind: 'cldr'
+        url: 'https://github.com/unicode-org/cldr/blob/acd6d88ae493633240e19a87a721076a8a75c310/common/supplemental/grammaticalFeatures.xml'
+        revision: 'acd6d88ae493633240e19a87a721076a8a75c310' # DevSkim: ignore DS173237
+        locator: 'fa grammatical-case inventory'
+        credit: 'Unicode CLDR contributors'
+    reason: 'The narrowed written bare-duration surface has no applicable case contrast.'
+    provenance:
+      - 'cldr48'
+
   list:
     engine: 'clitic'
     value: 'و'
@@ -202,6 +217,39 @@ surfaces:
         forms:
           default: 'ترابایت'
         symbol: 'TB'
+      decimalKilobyte:
+        forms: 'کیلوبایت'
+        symbol: 'kB'
+      decimalMegabyte:
+        forms: 'مگابایت'
+        symbol: 'MB'
+      decimalGigabyte:
+        forms: 'گیگابایت'
+        symbol: 'GB'
+      decimalTerabyte:
+        forms: 'ترابایت'
+        symbol: 'TB'
+      decimalPetabyte:
+        forms: 'پتابایت'
+        symbol: 'PB'
+      decimalExabyte:
+        forms: 'اگزابایت'
+        symbol: 'EB'
+      binaryKibibyte:
+        forms: 'کیبی‌بایت'
+        symbol: 'KiB'
+      binaryMebibyte:
+        forms: 'مبی‌بایت'
+        symbol: 'MiB'
+      binaryGibibyte:
+        forms: 'گیبی‌بایت'
+        symbol: 'GiB'
+      binaryTebibyte:
+        forms: 'تبی‌بایت'
+        symbol: 'TiB'
+      binaryPebibyte:
+        forms: 'پبی‌بایت'
+        symbol: 'PiB'
     timeUnits:
       millisecond:
         symbol: 'میلی‌ثانیه'
@@ -306,6 +354,7 @@ surfaces:
       negativeSign: '−'
 
     parse:
+      decimalMarker: 'ممیز'
       engine: 'token-map'
       normalizationProfile: 'Persian'
       cardinalMap:

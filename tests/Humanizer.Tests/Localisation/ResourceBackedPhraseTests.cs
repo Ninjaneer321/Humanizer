@@ -7,7 +7,7 @@ public class ResourceBackedPhraseTests
     public void UsesExpectedDateHumanizePhrases(string localeName, int unit, TimeUnit timeUnit, Tense tense, string expected)
     {
         var culture = GetCulture(localeName);
-        DateHumanize.Verify(expected, unit, timeUnit, tense, culture: culture);
+        VerifyDateHumanizePhrase(expected, unit, timeUnit, tense, culture);
     }
 
     [Theory]
@@ -15,7 +15,7 @@ public class ResourceBackedPhraseTests
     public void UsesExpectedDateHumanizeBoundaryPhrases(string localeName, int unit, TimeUnit timeUnit, Tense tense, string expected)
     {
         var culture = GetCulture(localeName);
-        DateHumanize.Verify(expected, unit, timeUnit, tense, culture: culture);
+        VerifyDateHumanizePhrase(expected, unit, timeUnit, tense, culture);
     }
 
     [Theory]
@@ -23,7 +23,7 @@ public class ResourceBackedPhraseTests
     public void UsesExpectedAdditionalDateHumanizePhrases(string localeName, int unit, TimeUnit timeUnit, Tense tense, string expected)
     {
         var culture = GetCulture(localeName);
-        DateHumanize.Verify(expected, unit, timeUnit, tense, culture: culture);
+        VerifyDateHumanizePhrase(expected, unit, timeUnit, tense, culture);
     }
 
     [Theory]
@@ -40,9 +40,10 @@ public class ResourceBackedPhraseTests
     public void UsesExpectedTimeOnlyDefaultHumanizePhrases(string localeName, string inputTime, string comparisonBase, string expected)
     {
         var culture = GetCulture(localeName);
-        Configurator.TimeOnlyHumanizeStrategy = new DefaultTimeOnlyHumanizeStrategy();
 
-        Assert.Equal(expected, TimeOnly.Parse(inputTime).Humanize(TimeOnly.Parse(comparisonBase), culture: culture));
+        Assert.Equal(
+            expected,
+            new DefaultTimeOnlyHumanizeStrategy().Humanize(TimeOnly.Parse(inputTime), TimeOnly.Parse(comparisonBase), culture));
     }
 
     [Theory]
@@ -50,9 +51,10 @@ public class ResourceBackedPhraseTests
     public void UsesExpectedTimeOnlyPrecisionHumanizePhrases(string localeName, string inputTime, string comparisonBase, double precision, string expected)
     {
         var culture = GetCulture(localeName);
-        Configurator.TimeOnlyHumanizeStrategy = new PrecisionTimeOnlyHumanizeStrategy(precision);
 
-        Assert.Equal(expected, TimeOnly.Parse(inputTime).Humanize(TimeOnly.Parse(comparisonBase), culture: culture));
+        Assert.Equal(
+            expected,
+            new PrecisionTimeOnlyHumanizeStrategy(precision).Humanize(TimeOnly.Parse(inputTime), TimeOnly.Parse(comparisonBase), culture));
     }
 
     [Theory]
@@ -60,7 +62,6 @@ public class ResourceBackedPhraseTests
     public void UsesExpectedTimeOnlyNeverPhrase(string localeName, string expected)
     {
         var culture = GetCulture(localeName);
-        Configurator.TimeOnlyHumanizeStrategy = new DefaultTimeOnlyHumanizeStrategy();
 
         Assert.Equal(expected, ((TimeOnly?)null).Humanize(culture: culture));
     }
@@ -70,7 +71,6 @@ public class ResourceBackedPhraseTests
     public void TimeOnlyNullableValueMatchesNonNullableHumanize(string localeName, string timeValue)
     {
         var culture = GetCulture(localeName);
-        Configurator.TimeOnlyHumanizeStrategy = new DefaultTimeOnlyHumanizeStrategy();
         var nullableTime = TimeOnly.Parse(timeValue);
 
         Assert.Equal(nullableTime.Humanize(culture: culture), ((TimeOnly?)nullableTime).Humanize(culture: culture));
@@ -127,7 +127,7 @@ public class ResourceBackedPhraseTests
         var culture = GetCulture(localeName);
         var query = from day in Enumerable.Range(0, 100000)
                     let timeSpan = TimeSpan.FromDays(day)
-                    let text = timeSpan.Humanize(precision: 3, culture: culture, maxUnit: TimeUnit.Year)
+                    let text = timeSpan.Humanize(precision: 4, culture: culture, maxUnit: TimeUnit.Year)
                     select text;
         var grouping = from text in query
                        group text by text into g
@@ -266,6 +266,18 @@ public class ResourceBackedPhraseTests
     }
 
     static CultureInfo GetCulture(string localeName) => CultureInfo.GetCultureInfo(localeName);
+
+    static void VerifyDateHumanizePhrase(string expected, int unit, TimeUnit timeUnit, Tense tense, CultureInfo culture)
+    {
+        if (timeUnit == TimeUnit.Day && Math.Abs(unit) >= 7)
+        {
+            var formatter = Configurator.Formatters.ResolveForCulture(culture);
+            Assert.Equal(expected, formatter.DateHumanize(timeUnit, tense, Math.Abs(unit)));
+            return;
+        }
+
+        DateHumanize.Verify(expected, unit, timeUnit, tense, culture: culture);
+    }
 
     static TimeSpan CreateTimeSpan(int unit, TimeUnit timeUnit) => timeUnit switch
     {
