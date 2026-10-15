@@ -531,6 +531,7 @@ public class WordsToNumberTests_Swedish
     [InlineData("tjugoett", 21, null)]
     [InlineData("hundraåtta", 108, null)]
     [InlineData("ett tusen", 1000, null)]
+    [InlineData("etttusenfem", 1005, null)]
     [InlineData("ett tusen hundraelva", 1111, null)]
     [InlineData("en miljon", 1000000, null)]
     [InlineData("första", 1, null)]
@@ -550,6 +551,34 @@ public class WordsToNumberTests_Swedish
         Assert.False(words.TryToNumber(out var parsedNumber, CultureInfo.CurrentCulture, out var unrecognizedWord));
         Assert.Equal(expectedUnrecognizedWord, unrecognizedWord);
         Assert.Equal(expectedNumber, parsedNumber);
+    }
+
+    [Theory]
+    [InlineData("sv-SE", "tusen", "minus ")]
+    [InlineData("nb-NO", "tusen", "minus ")]
+    [InlineData("is-IS", "þúsund", "mínus ")]
+    public void TryToNumber_BoundsCompoundScaleRecursion(string cultureName, string scale, string negativePrefix)
+    {
+        var culture = CultureInfo.GetCultureInfo(cultureName);
+        var legitimateWords = string.Concat(Enumerable.Repeat(scale, 64));
+        Assert.Equal(64000, legitimateWords.ToNumber(culture));
+        Assert.Equal(64000.1m, $"{legitimateWords} komma {1.ToWords(culture)}".ToDecimalNumber(culture));
+
+        var words = string.Concat(Enumerable.Repeat(scale, 20_000));
+        var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+        Assert.False(words.TryToNumber(out var parsedNumber, culture, out var unrecognizedWord));
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+        Assert.Equal(0, parsedNumber);
+        Assert.NotNull(unrecognizedWord);
+        Assert.True(allocated < 8_000_000, $"Compound-scale rejection allocated {allocated:N0} bytes.");
+        Assert.Throws<ArgumentException>(() => words.ToNumber(culture));
+
+        Assert.False($"{negativePrefix}{words}".TryToNumber(out parsedNumber, culture, out unrecognizedWord));
+        Assert.Equal(0, parsedNumber);
+        Assert.NotNull(unrecognizedWord);
+        Assert.False($"{words} komma {1.ToWords(culture)}".TryToDecimalNumber(out var parsedDecimal, culture, out unrecognizedWord));
+        Assert.Equal(0, parsedDecimal);
+        Assert.NotNull(unrecognizedWord);
     }
 }
 
@@ -696,6 +725,83 @@ public class WordsToNumberTests_Finnish
         Assert.Equal(expectedUnrecognizedWord, unrecognizedWord);
         Assert.Equal(expectedNumber, parsedNumber);
     }
+
+    [Fact]
+    public void TryToNumber_PreservesSuffixScaleSemantics()
+    {
+        var legitimateWords = string.Concat(Enumerable.Repeat("tuhat", 130));
+        Assert.Equal(130_000, legitimateWords.ToNumber(CultureInfo.CurrentCulture));
+        Assert.Equal(130_000.1m, $"{legitimateWords} pilkku yksi".ToDecimalNumber(CultureInfo.CurrentCulture));
+
+        Assert.Equal(1_129_001, $"{legitimateWords}tuhattayksi".ToNumber(CultureInfo.CurrentCulture));
+        Assert.Equal(131_000, $"{legitimateWords}tuhatta".ToNumber(CultureInfo.CurrentCulture));
+        Assert.Equal(130_000_000_000, $"{legitimateWords}miljoonaa".ToNumber(CultureInfo.CurrentCulture));
+        Assert.Equal(130_002_000_000, $"{legitimateWords}kaksimiljoonaa".ToNumber(CultureInfo.CurrentCulture));
+        Assert.Equal(130_000_000_001, $"{legitimateWords}miljoonaayksi".ToNumber(CultureInfo.CurrentCulture));
+        Assert.Equal(130_200, $"{legitimateWords}kaksisataa".ToNumber(CultureInfo.CurrentCulture));
+        Assert.Equal(130_021, $"{legitimateWords}kaksikymmentayksi".ToNumber(CultureInfo.CurrentCulture));
+        Assert.Equal(130_011, $"{legitimateWords}yksitoista".ToNumber(CultureInfo.CurrentCulture));
+        Assert.Equal(1_000_001, "tuhattuhattayksi".ToNumber(CultureInfo.CurrentCulture));
+        Assert.Equal(1_000_000_000_001, "miljoonamiljoonaayksi".ToNumber(CultureInfo.CurrentCulture));
+
+        Assert.Equal(9_000_000_000_000_000_000, string.Concat(Enumerable.Repeat("triljoona", 9)).ToNumber(CultureInfo.CurrentCulture));
+    }
+
+    [Fact(Timeout = 60_000)]
+    public void TryToNumber_BoundsSuffixScaleWork()
+    {
+        var scaleWords = string.Concat(Enumerable.Repeat("tuhat", 100_000));
+        AssertParsedBounded(scaleWords, 100_000_000);
+        AssertParsedBounded(string.Concat(Enumerable.Repeat("kaksituhatta", 200)), 400_000);
+        AssertParsedBounded(string.Concat(Enumerable.Repeat("tuhatsata", 200)), 220_000);
+        AssertRejectedBounded($"{scaleWords}mysteeri");
+
+        void AssertParsedBounded(string words, long expected)
+        {
+            var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+            Assert.True(words.TryToNumber(out var parsed, CultureInfo.CurrentCulture, out var unrecognizedWord), unrecognizedWord);
+            var allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+            var allocationLimit = checked((long)words.Length * 64);
+
+            Assert.Equal(expected, parsed);
+            Assert.Null(unrecognizedWord);
+            // Normalization has a fixed per-character cost; this linear ceiling still rejects quadratic growth.
+            Assert.True(allocated < allocationLimit, $"Suffix-scale parsing allocated {allocated:N0} bytes for {words.Length:N0} characters.");
+        }
+
+        void AssertRejectedBounded(string words)
+        {
+            var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+            Assert.False(words.TryToNumber(out var parsed, CultureInfo.CurrentCulture, out var unrecognizedWord));
+            var allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+            var allocationLimit = checked((long)words.Length * 64);
+
+            Assert.Equal(0, parsed);
+            Assert.NotNull(unrecognizedWord);
+            Assert.True(allocated < allocationLimit, $"Suffix-scale rejection allocated {allocated:N0} bytes for {words.Length:N0} characters.");
+        }
+    }
+
+    [Fact(Timeout = 30_000)]
+    public void TryToNumber_RejectsSuffixScaleOverflow()
+    {
+        AssertRejected(string.Concat(Enumerable.Repeat("triljoona", 10)));
+        AssertRejected(string.Concat(Enumerable.Repeat("triljoona", 20)));
+        AssertRejected(string.Concat(Enumerable.Repeat("tuhatta", 130)));
+
+        void AssertRejected(string words)
+        {
+            var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+            Assert.False(words.TryToNumber(out var parsed, CultureInfo.CurrentCulture, out var unrecognizedWord));
+            var allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+            var allocationLimit = Math.Max(8_000_000L, checked((long)words.Length * 64));
+
+            Assert.Equal(0, parsed);
+            Assert.NotNull(unrecognizedWord);
+            Assert.True(allocated < allocationLimit, $"Suffix-scale rejection allocated {allocated:N0} bytes for {words.Length:N0} characters.");
+            Assert.Throws<ArgumentException>(() => words.ToNumber(CultureInfo.CurrentCulture));
+        }
+    }
 }
 
 [UseCulture("af")]
@@ -831,6 +937,57 @@ public class WordsToNumberTests_Hungarian
         Assert.True(words.TryToNumber(out var parsedNumber, CultureInfo.CurrentCulture, out var unrecognizedWord));
         Assert.Equal(expectedUnrecognizedWord, unrecognizedWord);
         Assert.Equal(expectedNumber, parsedNumber);
+    }
+
+    [Fact]
+    public void TryToNumber_BoundsPrefixedScaleRecursion()
+    {
+        var legitimateWords = string.Concat(Enumerable.Repeat("szaz", 130));
+        Assert.Equal(13000, legitimateWords.ToNumber(CultureInfo.CurrentCulture));
+        Assert.Equal(13000.1m, $"{legitimateWords} egész egy".ToDecimalNumber(CultureInfo.CurrentCulture));
+        Assert.Equal(1_000_081, "milliónyolcvannullamillióegy".ToNumber(CultureInfo.CurrentCulture));
+
+        var scaleWords = string.Concat(Enumerable.Repeat("szaz", 32_000));
+        AssertParsedBounded(scaleWords, 3_200_000);
+        AssertParsedBounded(string.Join("-", Enumerable.Repeat("szaz", 32_000)), 3_200_000);
+        AssertParsedBounded(string.Concat(Enumerable.Repeat("ketszaz", 32_000)), 6_400_000);
+        Assert.Equal(9_000_000_000_000_000_000, string.Concat(Enumerable.Repeat("trillio", 9)).ToNumber(CultureInfo.CurrentCulture));
+        AssertRejected(string.Concat(Enumerable.Repeat("trillio", 10)));
+        AssertParsedBounded($"mínusz {scaleWords}", -3_200_000);
+        AssertRejected(string.Concat(Enumerable.Repeat("tizen", 20_000)) + "egy");
+        AssertRejected(string.Concat(Enumerable.Repeat("harminc", 15_000)) + "egy");
+        AssertRejected(string.Concat(Enumerable.Repeat("tizen", 256)) + "egyszaz");
+
+        Assert.True($"{scaleWords} egész egy".TryToDecimalNumber(
+            out var parsedDecimal,
+            CultureInfo.CurrentCulture,
+            out var unrecognizedWord));
+        Assert.Equal(3_200_000.1m, parsedDecimal);
+        Assert.Null(unrecognizedWord);
+
+        void AssertParsedBounded(string words, long expected)
+        {
+            var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+            Assert.True(words.TryToNumber(out var parsed, CultureInfo.CurrentCulture, out var unrecognizedWord));
+            var allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+
+            Assert.Equal(expected, parsed);
+            Assert.Null(unrecognizedWord);
+            Assert.True(allocated < 8_000_000, $"Prefixed-scale parsing allocated {allocated:N0} bytes.");
+            Assert.Equal(expected, words.ToNumber(CultureInfo.CurrentCulture));
+        }
+
+        void AssertRejected(string words)
+        {
+            var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+            Assert.False(words.TryToNumber(out var parsed, CultureInfo.CurrentCulture, out var unrecognizedWord));
+            var allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+
+            Assert.Equal(0, parsed);
+            Assert.NotNull(unrecognizedWord);
+            Assert.True(allocated < 8_000_000, $"Prefixed-scale rejection allocated {allocated:N0} bytes.");
+            Assert.Throws<ArgumentException>(() => words.ToNumber(CultureInfo.CurrentCulture));
+        }
     }
 }
 
@@ -1282,6 +1439,42 @@ public class ScaleLeadingCompoundWordsToNumberConverterTests
 
 public class TokenMapWordsToNumberConverterTests
 {
+    [Theory]
+    [InlineData("one ignore-first two", 3)]
+    [InlineData("one ignore-middle two", 3)]
+    [InlineData("one ignore-last two", 3)]
+    [InlineData("two multiply-first", 20)]
+    [InlineData("two multiply-middle", 20)]
+    [InlineData("two multiply-last", 20)]
+    [InlineData("two teen-first", 12)]
+    [InlineData("two teen-middle", 12)]
+    [InlineData("two teen-last", 12)]
+    [InlineData("two hundred-first", 200)]
+    [InlineData("two hundred-middle", 200)]
+    [InlineData("two hundred-last", 200)]
+    [InlineData("two MULTIPLY-MIDDLE", 12)]
+    public void ConfiguredTokenMembershipMatchesEveryArrayPositionOrdinally(string words, long expected)
+    {
+        var converter = new TokenMapWordsToNumberConverter(CreateMembershipRules());
+
+        Assert.True(converter.TryConvert(words, out var parsed, out var unrecognizedWord));
+        Assert.Equal(expected, parsed);
+        Assert.Null(unrecognizedWord);
+    }
+
+    [Theory]
+    [InlineData("one IGNORE-MIDDLE two", "IGNORE-MIDDLE")]
+    [InlineData("two TEEN-MIDDLE", "TEEN-MIDDLE")]
+    [InlineData("two HUNDRED-MIDDLE", "HUNDRED-MIDDLE")]
+    public void ConfiguredTokenMembershipRejectsCaseMismatches(string words, string expectedUnrecognizedWord)
+    {
+        var converter = new TokenMapWordsToNumberConverter(CreateMembershipRules());
+
+        Assert.False(converter.TryConvert(words, out var parsed, out var unrecognizedWord));
+        Assert.Equal(0, parsed);
+        Assert.Equal(expectedUnrecognizedWord, unrecognizedWord);
+    }
+
     [Fact]
     public void SignedOrdinalAbbreviationParsesAfterNegativePrefixNormalization()
     {
@@ -1392,6 +1585,26 @@ public class TokenMapWordsToNumberConverterTests
         Assert.True(converter.TryConvert("foo", out scaleOrdinalValue));
         Assert.Equal(11, scaleOrdinalValue);
     }
+
+    static TokenMapWordsToNumberRules CreateMembershipRules() => new()
+    {
+        CardinalMap = new Dictionary<string, long>(StringComparer.Ordinal)
+        {
+            ["one"] = 1,
+            ["two"] = 2,
+            ["multiply-first"] = 10,
+            ["multiply-middle"] = 10,
+            ["multiply-last"] = 10,
+            ["MULTIPLY-MIDDLE"] = 10
+        }.ToFrozenDictionary(StringComparer.Ordinal),
+        IgnoredTokens = ["ignore-first", "ignore-middle", "ignore-last"],
+        MultiplierTokens = ["multiply-first", "multiply-middle", "multiply-last"],
+        TeenSuffixTokens = ["teen-first", "teen-middle", "teen-last"],
+        HundredSuffixTokens = ["hundred-first", "hundred-middle", "hundred-last"],
+        HundredSuffixMinValue = 1,
+        HundredSuffixMaxValue = 9,
+        NormalizationProfile = TokenMapNormalizationProfile.CollapseWhitespace
+    };
 }
 
 [UseCulture("zh-CN")]
@@ -1541,6 +1754,88 @@ public class WordsToNumberTests_Filipino
         Assert.Equal(expectedNumber, parsedNumber);
     }
 
+    [Fact]
+    public void TryToNumber_ConsumesRepeatedTeenPrefixesWithoutRecursiveWork()
+    {
+        Assert.Equal(21, "labinglabingisa".ToNumber(CultureInfo.CurrentCulture));
+        Assert.Equal(20, "labinglabing".ToNumber(CultureInfo.CurrentCulture));
+        Assert.Equal(11, "labingisang".ToNumber(CultureInfo.CurrentCulture));
+        Assert.Equal(10, "labingat".ToNumber(CultureInfo.CurrentCulture));
+        Assert.Equal(-21, "minus labinglabingisa".ToNumber(CultureInfo.CurrentCulture));
+        Assert.Equal(21.1m, "labinglabingisa tuldok isa".ToDecimalNumber(CultureInfo.CurrentCulture));
+
+        const int prefixCount = 4096;
+        var words = string.Concat(Enumerable.Repeat("labing", prefixCount)) + "isa";
+        "labingisa".TryToNumber(out _, CultureInfo.CurrentCulture);
+
+        var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+        Assert.True(words.TryToNumber(out var parsed, CultureInfo.CurrentCulture, out var unrecognizedWord));
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+
+        Assert.Equal(prefixCount * 10 + 1, parsed);
+        Assert.Null(unrecognizedWord);
+        Assert.True(allocated < 1_000_000, $"Linking-affix parsing allocated {allocated:N0} bytes.");
+
+        var malformed = string.Concat(Enumerable.Repeat("labing", 256)) + "mystery";
+        Assert.False(malformed.TryToNumber(out parsed, CultureInfo.CurrentCulture, out unrecognizedWord));
+        Assert.Equal(0, parsed);
+        Assert.Equal(malformed, unrecognizedWord);
+    }
+
+    [Fact]
+    public void LinkingAffixProfileRejectsEmptyTeenPrefix()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new LinkingAffixWordsToNumberProfile(
+            new Dictionary<string, long>().ToFrozenDictionary(),
+            string.Empty,
+            10,
+            [],
+            [],
+            []));
+
+        Assert.Equal("teenPrefix", exception.ParamName);
+    }
+
+    [Fact]
+    public void LinkingAffixProfilePreservesCheckedTeenAggregationOrder()
+    {
+        var profile = new LinkingAffixWordsToNumberProfile(
+            new Dictionary<string, long>
+            {
+                ["end"] = -long.MaxValue
+            }.ToFrozenDictionary(),
+            "x",
+            long.MaxValue,
+            [],
+            [],
+            []);
+        var converter = new LinkingAffixWordsToNumberConverter(profile);
+
+        Assert.True(converter.TryConvert("xxend", out var parsed, out var unrecognizedWord));
+        Assert.Equal(long.MaxValue, parsed);
+        Assert.Null(unrecognizedWord);
+    }
+
+    [Fact]
+    public void LinkingAffixProfilePreservesMappedCardinalsBetweenTeenPrefixes()
+    {
+        var profile = new LinkingAffixWordsToNumberProfile(
+            new Dictionary<string, long>
+            {
+                ["xend"] = 50,
+                ["end"] = 1
+            }.ToFrozenDictionary(),
+            "x",
+            10,
+            [],
+            [],
+            []);
+        var converter = new LinkingAffixWordsToNumberConverter(profile);
+
+        Assert.True(converter.TryConvert("xxend", out var parsed, out var unrecognizedWord));
+        Assert.Equal(60, parsed);
+        Assert.Null(unrecognizedWord);
+    }
 }
 
 [UseCulture("id-ID")]

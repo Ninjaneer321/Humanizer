@@ -61,6 +61,19 @@ public class CoverageGapTests
         Assert.Equal(7, ordinals[expectedKey]);
     }
 
+    [Fact]
+    public void GreedyCompoundOrdinalBuilderKeepsFirstNormalizedDuplicate()
+    {
+        var ordinals = GreedyCompoundWordsToNumberConverter.BuildOrdinalMap(
+            new GenderEchoOrdinalConverter(),
+            "0123456789.",
+            string.Empty,
+            [new("masculine", "shared"), new("feminine", "shared")]);
+
+        Assert.Single(ordinals);
+        Assert.Equal(1, ordinals["shared"]);
+    }
+
     [Theory]
     [InlineData("42", 42)]
     [InlineData("minus two", -2)]
@@ -866,9 +879,13 @@ public class CoverageGapTests
         Assert.False(suffixOnly.Success);
         Assert.Equal("th", suffixOnly.UnrecognizedWord);
 
-        Assert.Equal(string.Empty, InvokePrivate<string>(typeof(InvertedTensWordsToNumberConverter), converter, "StripLeadingIgnoredTokens", string.Empty));
-        Assert.Equal("one", InvokePrivate<string>(typeof(InvertedTensWordsToNumberConverter), converter, "StripLeadingIgnoredTokens", "and of one"));
-        Assert.Equal("one", InvokePrivate<string>(typeof(InvertedTensWordsToNumberConverter), converter, "StripLeadingIgnoredTokens", "andone"));
+        var ignoredRemainder = InvokeInvertedTensTryParseCompact(converter, "twothousandand of one");
+        Assert.True(ignoredRemainder.Success);
+        Assert.Equal(2001, ignoredRemainder.Value);
+
+        var gluedIgnoredRemainder = InvokeInvertedTensTryParseCompact(converter, "twothousandandofone");
+        Assert.True(gluedIgnoredRemainder.Success);
+        Assert.Equal(2001, gluedIgnoredRemainder.Value);
     }
 
     [Theory]
@@ -906,6 +923,7 @@ public class CoverageGapTests
     [InlineData("first", 1)]
     [InlineData("score one", 20)]
     [InlineData("score five", 25)]
+    [InlineData("one and two", 3)]
     [InlineData("twenty teen three", 33)]
     [InlineData("two hundred three", 203)]
     [InlineData("two thousand three", 2003)]
@@ -1289,6 +1307,32 @@ public class CoverageGapTests
     }
 
     [Fact]
+    public void ConjunctionalScaleTerminalAndStrategyMatchesBooleanIdentity()
+    {
+        var converter = new ConjunctionalScaleNumberToWordsConverter(CreateConjunctionalScaleProfile(
+            ConjunctionalScaleAndStrategy.WithinGroupAndTerminalScaleSubHundredRemainder));
+        var values = new[] { false, true };
+
+        foreach (var addAnd in values)
+            foreach (var hasHundreds in values)
+                foreach (var hasScalePrefix in values)
+                    foreach (var isTerminalScaleRemainder in values)
+                    {
+                        var expected = addAnd && (hasHundreds || (hasScalePrefix && isTerminalScaleRemainder));
+                        var actual = InvokePrivate<bool>(
+                            typeof(ConjunctionalScaleNumberToWordsConverter),
+                            converter,
+                            "ShouldAddAnd",
+                            addAnd,
+                            hasHundreds,
+                            hasScalePrefix,
+                            isTerminalScaleRemainder);
+
+                        Assert.Equal(expected, actual);
+                    }
+    }
+
+    [Fact]
     public void ScaleStrategyConverterCoversNorwegianOrdinalAndErrorBranches()
     {
         var converter = new ScaleStrategyNumberToWordsConverter(CreateScaleStrategyProfile(
@@ -1597,6 +1641,19 @@ public class CoverageGapTests
     }
 
     [Fact]
+    public void PhraseClockNotationConverterUsesAuthoredMinuteWordForZero()
+    {
+        var profile = CreateClockProfile(
+            hourMode: PhraseClockHourMode.H12,
+            hourOneWord: "one",
+            min0: "{hour} {minutes}",
+            minuteWordsMap: ["zero"]);
+        var converter = new PhraseClockNotationConverter(profile);
+
+        Assert.Equal("one zero", converter.Convert(new TimeOnly(1, 0), ClockNotationRounding.None));
+    }
+
+    [Fact]
     public void PhraseClockNotationConverterCoversMalformedTemplatesAndFallbackBranches()
     {
         var invalidMode = new PhraseClockNotationConverter(CreateClockProfile(
@@ -1736,31 +1793,12 @@ public class CoverageGapTests
         Assert.Equal(string.Empty, unrecognizedWord);
 
         var compound = new CompoundScaleWordsToNumberConverter(CompoundScaleProfile);
-        object?[] emptyOptionalArguments = [string.Empty, 1L];
-        Assert.True(InvokePrivate<bool>(
-            typeof(CompoundScaleWordsToNumberConverter),
-            compound,
-            "TryParseOptional",
-            [typeof(string), typeof(long).MakeByRefType()],
-            emptyOptionalArguments));
-        Assert.Equal(0L, emptyOptionalArguments[1]);
-
-        object?[] optionalArguments = ["and five", 0L];
-        Assert.True(InvokePrivate<bool>(
-            typeof(CompoundScaleWordsToNumberConverter),
-            compound,
-            "TryParseOptional",
-            [typeof(string), typeof(long).MakeByRefType()],
-            optionalArguments));
-        Assert.Equal(5L, optionalArguments[1]);
-        object?[] gluedIgnoredArguments = ["andfive", 0L];
-        Assert.True(InvokePrivate<bool>(
-            typeof(CompoundScaleWordsToNumberConverter),
-            compound,
-            "TryParseOptional",
-            [typeof(string), typeof(long).MakeByRefType()],
-            gluedIgnoredArguments));
-        Assert.Equal(5L, gluedIgnoredArguments[1]);
+        Assert.True(compound.TryConvert("onethousand", out parsed));
+        Assert.Equal(1000, parsed);
+        Assert.True(compound.TryConvert("onethousandandfive", out parsed));
+        Assert.Equal(1005, parsed);
+        Assert.True(compound.TryConvert("one thousand and five", out parsed));
+        Assert.Equal(1005, parsed);
 
         var linking = new LinkingAffixWordsToNumberConverter(LinkingAffixProfile);
         Assert.True(linking.TryConvert("minus two", out parsed));
@@ -1794,14 +1832,14 @@ public class CoverageGapTests
         Assert.True(suffix.TryConvert("42", out parsed));
         Assert.Equal(42, parsed);
         Assert.Equal(7, suffix.Convert("two five"));
-        object?[] suffixOptionalArguments = [string.Empty, 1L];
+        object?[] suffixOptionalArguments = [string.Empty, 0, 1000L, 1L];
         Assert.True(InvokePrivate<bool>(
             typeof(SuffixScaleWordsToNumberConverter),
             suffix,
             "TryParseOptional",
-            [typeof(string), typeof(long).MakeByRefType()],
+            [typeof(string), typeof(int), typeof(long).MakeByRefType(), typeof(long).MakeByRefType()],
             suffixOptionalArguments));
-        Assert.Equal(0L, suffixOptionalArguments[1]);
+        Assert.Equal(0L, suffixOptionalArguments[3]);
 
         var eastAsian = new EastAsianPositionalWordsToNumberConverter(EastAsianSingleCharacterProfile);
         Assert.True(eastAsian.TryConvert("十", out parsed));

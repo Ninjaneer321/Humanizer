@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 using Xunit;
 
@@ -8,6 +10,172 @@ namespace Humanizer.SourceGenerators.Tests;
 
 public class CanonicalLocaleSchemaTests
 {
+    [Theory]
+    [InlineData("-1", "between 0 and 59")]
+    [InlineData("60", "between 0 and 59")]
+    [InlineData("one", "integer keys")]
+    public void ClockMinuteWordsMapRejectsInvalidSparseKeys(string key, string expectedMessage)
+    {
+        var catalog = CreateCatalog(
+            ("zz", $"""
+locale: 'zz'
+surfaces:
+  clock:
+    engine: 'phrase-clock'
+    minuteWordsMap:
+      {key}: 'minute'
+"""));
+
+        Assert.Contains(
+            catalog.Diagnostics,
+            diagnostic => diagnostic.Id == "HSG003" &&
+                diagnostic.GetMessage().Contains(expectedMessage, StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("1", "1")]
+    [InlineData("1", "01")]
+    public void ClockMinuteWordsMapRejectsDuplicateSparseKeys(string firstKey, string secondKey)
+    {
+        var catalog = CreateCatalog(
+            ("zz", $"""
+locale: 'zz'
+surfaces:
+  clock:
+    engine: 'phrase-clock'
+    minuteWordsMap:
+      {firstKey}: 'one'
+      {secondKey}: 'another one'
+"""));
+
+        Assert.Contains(
+            catalog.Diagnostics,
+            static diagnostic => diagnostic.Id == "HSG003" &&
+                diagnostic.GetMessage().Contains("duplicate", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void ClockMinuteWordsMapRejectsDenseAndSparseBlockNodesTogether()
+    {
+        var catalog = CreateCatalog(
+            ("zz", """
+locale: 'zz'
+surfaces:
+  clock:
+    engine: 'phrase-clock'
+    minuteWordsMap:
+      - ''
+      - 'one'
+    minuteWordsMap:
+      1: 'one'
+"""));
+
+        Assert.Contains(
+            catalog.Diagnostics,
+            static diagnostic => diagnostic.Id == "HSG003" &&
+                diagnostic.GetMessage().Contains("duplicate", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Theory]
+    [InlineData("''", "non-empty string")]
+    [InlineData("1", "must be a string")]
+    [InlineData("true", "must be a string")]
+    public void ClockMinuteWordsMapRejectsInvalidSparseValues(string value, string expectedMessage)
+    {
+        var catalog = CreateCatalog(
+            ("zz", $"""
+locale: 'zz'
+surfaces:
+  clock:
+    engine: 'phrase-clock'
+    minuteWordsMap:
+      1: {value}
+"""));
+
+        Assert.Contains(
+            catalog.Diagnostics,
+            diagnostic => diagnostic.Id == "HSG003" &&
+                diagnostic.GetMessage().Contains(expectedMessage, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ClockMinuteWordsMapRejectsNestedSparseValues()
+    {
+        var catalog = CreateCatalog(
+            ("zz", """
+locale: 'zz'
+surfaces:
+  clock:
+    engine: 'phrase-clock'
+    minuteWordsMap:
+      1:
+        value: 'one'
+"""));
+
+        Assert.Contains(
+            catalog.Diagnostics,
+            static diagnostic => diagnostic.Id == "HSG003" &&
+                diagnostic.GetMessage().Contains("must be a string", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ClockMinuteWordsMapRejectsScalarNode()
+    {
+        var catalog = CreateCatalog(
+            ("zz", """
+locale: 'zz'
+surfaces:
+  clock:
+    engine: 'phrase-clock'
+    minuteWordsMap: 'one'
+"""));
+
+        Assert.Contains(
+            catalog.Diagnostics,
+            static diagnostic => diagnostic.Id == "HSG003" &&
+                diagnostic.GetMessage().Contains("sequence or sparse numeric mapping", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ClockMinuteWordsMapRejectsDenseSequencesLongerThanSixtySlots()
+    {
+        var minuteWords = string.Join('\n', Enumerable.Repeat("      - ''", 61));
+        var catalog = CreateCatalog(
+            ("zz", $"""
+locale: 'zz'
+surfaces:
+  clock:
+    engine: 'phrase-clock'
+    minuteWordsMap:
+{minuteWords}
+"""));
+
+        Assert.Contains(
+            catalog.Diagnostics,
+            static diagnostic => diagnostic.Id == "HSG003" &&
+                diagnostic.GetMessage().Contains("at most 60 entries", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ClockMinuteWordsMapRejectsNonStringDenseValues()
+    {
+        var catalog = CreateCatalog(
+            ("zz", """
+locale: 'zz'
+surfaces:
+  clock:
+    engine: 'phrase-clock'
+    minuteWordsMap:
+      - ''
+      - 1
+"""));
+
+        Assert.Contains(
+            catalog.Diagnostics,
+            static diagnostic => diagnostic.Id == "HSG003" &&
+                diagnostic.GetMessage().Contains("must be a string", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void CanonicalSchemaRequiresLocaleAndSurfacesAndRejectsLegacyTopLevelKeys()
     {
@@ -298,7 +466,12 @@ surfaces:
 
         Assert.Equal("conjunction", baseLocale.CollectionFormatter!.Kind);
         Assert.Equal("and", baseLocale.CollectionFormatter.Argument);
-        Assert.Equal("russian", baseLocale.Grammar!.GetScalar("pluralRule"));
+        var grammar = Assert.IsType<HumanizerSourceGenerator.SimpleYamlMapping>(baseLocale.Grammar);
+        Assert.Equal("russian", grammar.GetScalar("pluralRule"));
+        Assert.Equal("russian", grammar.GetScalar("dataUnitPluralRule"));
+        var timeUnitGenders = Assert.IsType<HumanizerSourceGenerator.SimpleYamlMapping>(grammar.Values["timeUnitGenders"]);
+        Assert.Equal("feminine", timeUnitGenders.GetScalar("hour"));
+        Assert.False(grammar.Values.ContainsKey("engine"));
         Assert.Equal("russian", GetRequiredString(baseLocale.Formatter!, "pluralRule"));
         Assert.Equal("profiled", GetRequiredString(baseLocale.Formatter!, "engine"));
         Assert.Equal("conjunctional-scale", GetRequiredString(baseLocale.NumberToWords!, "engine"));
@@ -742,6 +915,28 @@ locale: 'zz'
 surfaces:
   inflection:
     cardinalRule: 'French'
+"""));
+
+        Assert.NotEmpty(HumanizerSourceGenerator.LocaleSemanticDiff.Compare(leftCatalog.Locales, rightCatalog.Locales));
+    }
+
+    [Fact]
+    public void SemanticDiffDetectsInflectionQuantitySelectorChanges()
+    {
+        var leftCatalog = CreateCatalog(("zz", """
+locale: 'zz'
+surfaces:
+  inflection:
+    cardinalRule: 'Other'
+    capability: 'display-by-category'
+"""));
+        var rightCatalog = CreateCatalog(("zz", """
+locale: 'zz'
+surfaces:
+  inflection:
+    cardinalRule: 'Other'
+    capability: 'display-by-category'
+    quantitySelector: 'exact-numeric-singleton'
 """));
 
         Assert.NotEmpty(HumanizerSourceGenerator.LocaleSemanticDiff.Compare(leftCatalog.Locales, rightCatalog.Locales));
@@ -1208,6 +1403,12 @@ surfaces:
   calendar:
     eraNames: {}
 """, "unsupported property 'eraNames'")]
+    [InlineData("""
+locale: 'zz'
+surfaces:
+  compass:
+    unexpected: {}
+""", "unsupported property 'unexpected'")]
     public void CanonicalSchemaRejectsUnsupportedCanonicalProperties(string yaml, string expectedMessage)
     {
         var catalog = CreateCatalog(("zz", yaml));
@@ -1290,6 +1491,15 @@ surfaces:
     finalTemplate: 'prefix {0}'
 """));
 
+        var missingPairTemplateCatalog = CreateCatalog(
+            ("zz", """
+locale: 'zz'
+surfaces:
+  list:
+    engine: 'conjunction'
+    finalTemplate: '{0} and {1}'
+"""));
+
         Assert.Contains(
             missingTemplatesCatalog.Diagnostics,
             static diagnostic => diagnostic.Id == "HSG003" &&
@@ -1298,6 +1508,10 @@ surfaces:
             malformedTemplatesCatalog.Diagnostics,
             static diagnostic => diagnostic.Id == "HSG003" &&
                 diagnostic.GetMessage().Contains("must use '{0}' and '{1}'", StringComparison.Ordinal));
+        Assert.Contains(
+            missingPairTemplateCatalog.Diagnostics,
+            static diagnostic => diagnostic.Id == "HSG003" &&
+                diagnostic.GetMessage().Contains("must define canonical list templates", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -1487,6 +1701,247 @@ surfaces:
         Enumerable.Range(1, 12)
             .Select(index => $"{prefix}{index}")
             .ToArray();
+
+    [Fact]
+    public void AcceptedCultureCompatibilityIsTheFrozenPlatformUnionPlusEveryCanonicalRoot()
+    {
+        var catalog = CreateCheckedInLocaleCatalog();
+
+        Assert.Empty(catalog.Diagnostics);
+        Assert.Equal(579, catalog.AcceptedCultures.Length);
+        Assert.Equal(
+            "ur",
+            catalog.AcceptedCultures.Single(static culture =>
+                culture.Name == "ur-Aran-IN").LocaleProfileOwner);
+        var arabicPunjabi = catalog.AcceptedCultures.Single(static culture =>
+            culture.Name == "pa-Aran-PK");
+        Assert.Equal("pa-Arab", arabicPunjabi.LocaleProfileOwner);
+        Assert.Equal(
+            "Arab",
+            HumanizerSourceGenerator.LocaleCatalogInput.GetEffectiveScript(arabicPunjabi.Name));
+        Assert.Equal(
+            "ur-IN",
+            catalog.AcceptedCultures.Single(static culture =>
+                culture.Name == "ur-IN").LocaleProfileOwner);
+        Assert.Equal(
+            "en",
+            catalog.AcceptedCultures.Single(static culture =>
+                culture.Name == "en-AL").LocaleProfileOwner);
+        Assert.Equal(
+            "zh-Hant",
+            catalog.AcceptedCultures.Single(static culture =>
+                culture.Name == "zh-Hant-JP").LocaleProfileOwner);
+        Assert.Equal(
+            "zh-CN",
+            catalog.AcceptedCultures.Single(static culture =>
+                culture.Name == "zh-CN").LocaleProfileOwner);
+        Assert.Equal(
+            "ca",
+            catalog.AcceptedCultures.Single(static culture =>
+                culture.Name == "ca-ES-valencia").LocaleProfileOwner);
+        Assert.Equal(
+            "zh-Hans",
+            catalog.AcceptedCultures.Single(static culture =>
+                culture.Name == "zh-CHS").LocaleProfileOwner);
+        Assert.Equal(
+            "zh-Hant",
+            catalog.AcceptedCultures.Single(static culture =>
+                culture.Name == "zh-TW").LocaleProfileOwner);
+        Assert.All(catalog.AcceptedCultures, static culture => Assert.Null(culture.InflectionOwner));
+    }
+
+    [Theory]
+    [InlineData("pa-Guru-IN", "pa", "Guru")]
+    [InlineData("pa-Arab-PK", "pa-Arab", "Arab")]
+    [InlineData("pa-Aran-PK", "pa-Arab", "Arab")]
+    [InlineData("sr-Cyrl-RS", "sr", "Cyrl")]
+    [InlineData("sr-Latn-RS", "sr-Latn", "Latn")]
+    [InlineData("uz-Cyrl-UZ", "uz-Cyrl-UZ", "Cyrl")]
+    [InlineData("uz-Latn-UZ", "uz-Latn-UZ", "Latn")]
+    [InlineData("ur-Aran-IN", "ur", "Arab")]
+    [InlineData("zh-CHS", "zh-Hans", "Hans")]
+    [InlineData("zh-CHT", "zh-Hant", "Hant")]
+    public void AcceptedCultureCompatibilityKeepsDistinctScriptOwnersAligned(
+        string name,
+        string expectedOwner,
+        string expectedScript)
+    {
+        var catalog = CreateCheckedInLocaleCatalog();
+
+        var acceptedCulture = catalog.AcceptedCultures.Single(culture =>
+            culture.Name == name);
+
+        Assert.Equal(expectedOwner, acceptedCulture.LocaleProfileOwner);
+        Assert.Equal(
+            expectedScript,
+            HumanizerSourceGenerator.LocaleCatalogInput.GetEffectiveScript(name));
+    }
+
+    [Fact]
+    public void AcceptedCultureCompatibilityMatchesTheIndependentFrozenSnapshotHash()
+    {
+        var catalog = CreateCheckedInLocaleCatalog();
+        var rows = catalog.AcceptedCultures
+            .OrderBy(static culture => culture.Name, StringComparer.Ordinal)
+            .Select(culture =>
+            {
+                var effectiveScript =
+                    HumanizerSourceGenerator.LocaleCatalogInput.GetEffectiveScript(culture.Name);
+                Assert.NotNull(effectiveScript);
+                return $"{culture.Name}\t{culture.LocaleProfileOwner}\t{effectiveScript}";
+            });
+        var snapshot = string.Join("\n", rows);
+        var actual = Convert.ToHexString(
+                SHA256.HashData(Encoding.UTF8.GetBytes(snapshot)))
+            .ToLowerInvariant();
+        const string expected = "a8c95bbd2f66dd1699a5d13a8218831e6298ddc43461c4fd84d4033ab38ef914"; // DevSkim: ignore DS173237
+        var substituted = snapshot.Replace(
+            "af\taf\tLatn",
+            "af\ten\tLatn",
+            StringComparison.Ordinal);
+        var substitutedHash = Convert.ToHexString(
+                SHA256.HashData(Encoding.UTF8.GetBytes(substituted)))
+            .ToLowerInvariant();
+
+        Assert.Equal(expected, actual);
+        Assert.NotEqual(expected, substitutedHash);
+    }
+
+    [Fact]
+    public void AcceptedCultureCompatibilityMatchesCommittedPlatformLedgers()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var macOsPath = Path.Combine(
+            repositoryRoot,
+            "tests",
+            "Humanizer.SourceGenerators.Tests",
+            "TestData",
+            "AcceptedCultures",
+            "macos.json");
+        var windowsPath = Path.Combine(
+            repositoryRoot,
+            "tests",
+            "Humanizer.SourceGenerators.Tests",
+            "TestData",
+            "AcceptedCultures",
+            "windows-nls.json");
+        Assert.Equal(
+            "6c9d99872c0dcc3e4ad519231168c8493bab2eae380e548f5d471651d5ec9d33", // DevSkim: ignore DS173237
+            GetSha256(macOsPath));
+        Assert.Equal(
+            "21c7919a1d5534622c31b10f74e998fb70dbb8952a541c13e3ba9da9d20fa19c", // DevSkim: ignore DS173237
+            GetSha256(windowsPath));
+
+        var expectedOwners = new Dictionary<string, string>(
+            StringComparer.OrdinalIgnoreCase);
+        AddAcceptedCultureLedger(expectedOwners, macOsPath, expectedCount: 554);
+        AddAcceptedCultureLedger(expectedOwners, windowsPath, expectedCount: 480);
+        // .NET's compatibility alias walks to pa, while Humanizer's script-owned
+        // locale profiles deliberately route the legacy Aran spelling to pa-Arab.
+        expectedOwners["pa-Aran-PK"] = "pa-Arab";
+        foreach (var path in Directory.EnumerateFiles(
+                     Path.Combine(repositoryRoot, "src", "Humanizer", "Locales"),
+                     "*.yml"))
+        {
+            var localeCode = Path.GetFileNameWithoutExtension(path);
+            expectedOwners.TryAdd(localeCode, localeCode);
+        }
+
+        var actual = CreateCheckedInLocaleCatalog().AcceptedCultures
+            .OrderBy(static culture => culture.Name, StringComparer.Ordinal)
+            .Select(static culture =>
+                $"{culture.Name}\t{culture.LocaleProfileOwner}")
+            .ToArray();
+        var expected = expectedOwners
+            .OrderBy(static row => row.Key, StringComparer.Ordinal)
+            .Select(static row => $"{row.Key}\t{row.Value}")
+            .ToArray();
+
+        Assert.Equal(579, expected.Length);
+        Assert.Equal(expected, actual);
+    }
+
+    static void AddAcceptedCultureLedger(
+        Dictionary<string, string> owners,
+        string path,
+        int expectedCount)
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(path));
+        Assert.Equal(expectedCount, document.RootElement.GetArrayLength());
+        foreach (var row in document.RootElement.EnumerateArray())
+        {
+            var name = row.GetProperty("AcceptedName").GetString()!;
+            var owner = row.GetProperty("LocaleProfileOwner").GetString()!;
+            if (owners.TryGetValue(name, out var previousOwner))
+            {
+                Assert.Equal(previousOwner, owner);
+            }
+            else
+            {
+                owners.Add(name, owner);
+            }
+        }
+    }
+
+    static string GetSha256(string path) =>
+        Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)))
+            .ToLowerInvariant();
+
+    static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null &&
+               !File.Exists(Path.Combine(directory.FullName, "Humanizer.slnx")))
+        {
+            directory = directory.Parent;
+        }
+
+        return directory?.FullName ?? throw new DirectoryNotFoundException(
+            "Could not locate the Humanizer repository root.");
+    }
+
+    [Fact]
+    public void AcceptedCultureCompatibilityRejectsCaseInsensitiveDuplicateNames()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            HumanizerSourceGenerator.AcceptedCultureCompatibility.ValidateUniqueNames(
+            [
+                ("first", "aa,shared"),
+                ("second", "bb,SHARED")
+            ]));
+
+        Assert.Contains("SHARED", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("first", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("second", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AuthoredInflectionReplacesInheritedBundleAtomically()
+    {
+        var catalog = CreateCatalog(
+            ("zz", """
+locale: 'zz'
+surfaces:
+  inflection:
+    cardinalRule: 'EnglishLike'
+    capability: 'inert'
+    scripts:
+      - 'Latn'
+"""),
+            ("zz-ZZ", """
+locale: 'zz-ZZ'
+variantOf: 'zz'
+surfaces:
+  inflection:
+    cardinalRule: 'Other'
+    capability: 'inert'
+"""));
+
+        Assert.Empty(catalog.Diagnostics);
+        var child = catalog.Locales.Single(static locale => locale.LocaleCode == "zz-ZZ");
+        Assert.Equal("Other", child.Inflection!.GetScalar("cardinalRule"));
+        Assert.False(child.Inflection.TryGetValue("scripts", out _));
+    }
 
     static string MonthItems(IEnumerable<string> values) =>
         string.Join('\n', values.Select(static value => $"      - '{value}'"));

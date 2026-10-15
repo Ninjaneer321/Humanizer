@@ -48,10 +48,27 @@ These instructions apply to the entire repository.
 - Cover new localization behavior with targeted tests under `tests/Humanizer.Tests/Localisation/{culture}`.
 
 ## Documentation Updates
-- Update `readme.md`, resource comments, or XML docs when introducing new features or behavior changes.
-- Provide meaningful examples in documentation and XML summaries where appropriate.
+- Every public API change must update its XML documentation and any affected `readme.md`, narrative docs, or examples.
+- Regenerate and commit the checked-in current API reference with `pwsh tools/docs/snapshot.ps1 -Version current`; verify it with `pwsh tools/docs/snapshot.ps1 -Version current -Check`.
+- When the documentation pipeline or generated API reference changes, also run `pwsh tools/docs/test.ps1 -RequireNativeAot`.
+
+## Issue Communication
+- For issue-driven work, especially reports from external contributors, communicate politely in the public issue: thank or acknowledge the reporter once reproduction is confirmed; link any fixing pull request when one exists; distinguish reproduced, fixed, merged, and released states; keep promised sibling or applicability follow-ups current; and post a final resolution without claiming release before publication. Do not add noisy pre-reproduction updates or disclose security-sensitive details.
 
 ## Pull Request Guidelines
 - Keep changes focused with clear commit messages.
 - Follow repository PR template expectations: summarize changes, list tests run, and reference related issues (e.g., `fixes #123`) when applicable.
 - Ensure the codebase remains backward-compatible unless intentionally introducing a documented breaking change.
+
+## Terminal Pull Request Gate
+- Every agent-managed pull request must be ready, never draft. Before merging a new or existing pull request, reconcile its body with the current template: remove stale draft instructions and add the Terminal evidence section.
+- After the final push, authenticate and record the exact `{baseSha, headSha}` pair in the pull request body. Run the actual `agent-utilities:thermo-nuclear-review` and `agent-utilities:thermo-nuclear-code-quality-review` skills against that pair; both must finish with final clean/APPROVE, merge-eligible outcomes. Record an explicit disposition for every finding: fix and push valid findings; for invalid or non-actionable findings, record the evidence and reason and obtain final reviewer acceptance. If there are no valid findings, no push is required.
+- Confirm the head is current and mergeable. Run every applicable test, format, build, package, documentation, browser, security, and platform gate. Resolve actionable review threads; mark any remaining item `needs-human` and pause the merge. Require terminal hosted CI and ruleset checks to be green.
+- Run the actual `compound-engineering:ce-babysit-pr` skill against the exact pair through the current-head reviewer lifecycle, CI, base movement, and a quiet settle, and record its terminal clean evidence. If either SHA changes, first update the pull request body with the replacement `{baseSha, headSha}` pair, then invalidate prior evidence and rerun both Thermos reviews, every applicable check, and babysitting against that recorded pair. Immediately before merging, reauthenticate the live base and head, verify that they exactly match the recorded pair, and refuse the merge on any mismatch.
+- Security changes also require Codex Security proof-of-concept or attack-path closure. Changes affecting rendered documentation, the site, or UI require desktop and mobile checks in light and dark modes, accessibility and link checks, and version-snapshot validation. Localization or source-generator changes require every applicable locale, schema, generator, and runtime matrix with no partial or English fallback.
+- Merge only the exact approved head. Then verify the merge on the default branch, the changed behavior, and any applicable security dashboard; safely remove worktrees and branches and archive completed tasks.
+- Thermos is a merge-director evidence gate recorded in each pull request body using the template, not a GitHub required status. Subject to its configured bypass, the active repository ruleset separately enforces hosted CI, CodeQL, DevSkim, and code-quality checks; organization-admin bypass will not be used for agent-managed merges.
+
+## Merging
+
+PRs land through the Mergify merge queue (`.mergify.yml`), squashed into one commit on `main` titled and described by the PR; merge commits and rebase merges are turned off. Do not merge by hand. Mergify queues a PR once it is not a draft, its required checks are green, every review thread is resolved, and it is authored by clairernovotny or approved by someone with write access. Add the `do-not-merge` label to hold one back.

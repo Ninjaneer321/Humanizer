@@ -14,6 +14,7 @@ internal class TokenMapWordsToNumberConverter(TokenMapWordsToNumberRules rules) 
     const int MaxCompactGluedScaleCountLength = 96;
     const int MaxCompactGluedScaleTokenCount = 16;
     const int MaxCompactGluedScaleStatesPerPosition = 128;
+    const int MaxGluedScaleDepth = 8;
 
     readonly TokenMapWordsToNumberRules rules = rules;
     readonly FrozenDictionary<string, long>? exactOrdinalMap = rules.ExactOrdinalMap;
@@ -166,17 +167,17 @@ internal class TokenMapWordsToNumberConverter(TokenMapWordsToNumberRules rules) 
     /// Parses an exact ordinal string, an ordinal scale value, or a glued ordinal-scale suffix.
     /// </summary>
     /// <param name="words">The normalized ordinal phrase.</param>
-    /// <param name="ordinalScaleMap">The ordinal scale lookup table.</param>
+    /// <param name="ordinalScaleLookup">The ordinal scale lookup table.</param>
     /// <param name="value">When this method returns, the parsed numeric value.</param>
     /// <returns><c>true</c> if the phrase was recognized; otherwise, <c>false</c>.</returns>
-    bool TryParseExtendedOrdinal(string words, FrozenDictionary<string, long> ordinalScaleMap, out long value)
+    bool TryParseExtendedOrdinal(string words, FrozenDictionary<string, long> ordinalScaleLookup, out long value)
     {
         if (exactOrdinalMap?.TryGetValue(words, out value) == true)
         {
             return true;
         }
 
-        if (ordinalScaleMap.TryGetValue(words, out var scaleValue))
+        if (ordinalScaleLookup.TryGetValue(words, out var scaleValue))
         {
             value = scaleValue;
             return true;
@@ -236,6 +237,9 @@ internal class TokenMapWordsToNumberConverter(TokenMapWordsToNumberRules rules) 
     /// <param name="unrecognizedWord">When parsing fails, the token that was not recognized.</param>
     /// <returns><c>true</c> if the phrase was parsed successfully; otherwise, <c>false</c>.</returns>
     bool TryParseCardinal(string words, bool allowLongMinMagnitude, out long value, out string? unrecognizedWord)
+        => TryParseCardinal(words, allowLongMinMagnitude, 0, out value, out unrecognizedWord);
+
+    bool TryParseCardinal(string words, bool allowLongMinMagnitude, int gluedScaleDepth, out long value, out string? unrecognizedWord)
     {
         var maxMagnitude = allowLongMinMagnitude
             ? (ulong)long.MaxValue + 1UL
@@ -252,7 +256,7 @@ internal class TokenMapWordsToNumberConverter(TokenMapWordsToNumberRules rules) 
                 return true;
             }
 
-            if (TryParseGluedScale(words, out var gluedScaleValue))
+            if (TryParseGluedScale(words, gluedScaleDepth, out var gluedScaleValue))
             {
                 value = gluedScaleValue;
                 unrecognizedWord = null;
@@ -294,7 +298,7 @@ internal class TokenMapWordsToNumberConverter(TokenMapWordsToNumberRules rules) 
                     continue;
                 }
 
-                if (TryParseGluedScaleParts(token, out var gluedScaleCount, out var gluedScaleTokenValue))
+                if (TryParseGluedScaleParts(token, gluedScaleDepth, out var gluedScaleCount, out var gluedScaleTokenValue))
                 {
                     if (gluedScaleTokenValue < rules.ScaleThreshold)
                     {
@@ -550,7 +554,7 @@ internal class TokenMapWordsToNumberConverter(TokenMapWordsToNumberRules rules) 
     /// Parses a terminal exact ordinal.
     /// </summary>
     /// <param name="token">The current token.</param>
-    /// <param name="exactOrdinalMap">The exact ordinal lookup table.</param>
+    /// <param name="exactOrdinalLookup">The exact ordinal lookup table.</param>
     /// <param name="tokenizer">The active tokenizer.</param>
     /// <param name="pendingToken">A token that should be returned before reading from <paramref name="tokenizer"/>.</param>
     /// <param name="total">The accumulated large-scale value.</param>
@@ -560,7 +564,7 @@ internal class TokenMapWordsToNumberConverter(TokenMapWordsToNumberRules rules) 
     /// <returns><c>true</c> if the current token completed an exact ordinal parse; otherwise, <c>false</c>.</returns>
     bool TryParseTerminalExactOrdinal(
         string token,
-        FrozenDictionary<string, long>? exactOrdinalMap,
+        FrozenDictionary<string, long>? exactOrdinalLookup,
         ref WordsToNumberTokenizer.Enumerator tokenizer,
         ref string? pendingToken,
         long total,
@@ -568,7 +572,7 @@ internal class TokenMapWordsToNumberConverter(TokenMapWordsToNumberRules rules) 
         out long value,
         out string? unrecognizedWord)
     {
-        if (exactOrdinalMap?.TryGetValue(token, out var exactOrdinalValue) != true)
+        if (exactOrdinalLookup?.TryGetValue(token, out var exactOrdinalValue) != true)
         {
             value = default;
             unrecognizedWord = null;
@@ -603,8 +607,8 @@ internal class TokenMapWordsToNumberConverter(TokenMapWordsToNumberRules rules) 
     /// Parses a terminal exact ordinal or ordinal-scale token when extended ordinal rules are available.
     /// </summary>
     /// <param name="token">The current token.</param>
-    /// <param name="exactOrdinalMap">The exact ordinal lookup table.</param>
-    /// <param name="ordinalScaleMap">The ordinal scale lookup table.</param>
+    /// <param name="exactOrdinalLookup">The exact ordinal lookup table.</param>
+    /// <param name="ordinalScaleLookup">The ordinal scale lookup table.</param>
     /// <param name="tokenizer">The active tokenizer.</param>
     /// <param name="pendingToken">A token that should be returned before reading from <paramref name="tokenizer"/>.</param>
     /// <param name="total">The accumulated large-scale value.</param>
@@ -614,8 +618,8 @@ internal class TokenMapWordsToNumberConverter(TokenMapWordsToNumberRules rules) 
     /// <returns><c>true</c> if the current token completed an ordinal parse; otherwise, <c>false</c>.</returns>
     bool TryParseTerminalExtendedOrdinal(
         string token,
-        FrozenDictionary<string, long>? exactOrdinalMap,
-        FrozenDictionary<string, long> ordinalScaleMap,
+        FrozenDictionary<string, long>? exactOrdinalLookup,
+        FrozenDictionary<string, long> ordinalScaleLookup,
         ref WordsToNumberTokenizer.Enumerator tokenizer,
         ref string? pendingToken,
         long total,
@@ -625,8 +629,8 @@ internal class TokenMapWordsToNumberConverter(TokenMapWordsToNumberRules rules) 
     {
         var ordinalValue = default(long);
         var ordinalScaleValue = default(long);
-        var isExactOrdinal = exactOrdinalMap?.TryGetValue(token, out ordinalValue) == true;
-        var isOrdinalScale = ordinalScaleMap.TryGetValue(token, out ordinalScaleValue);
+        var isExactOrdinal = exactOrdinalLookup?.TryGetValue(token, out ordinalValue) == true;
+        var isOrdinalScale = ordinalScaleLookup.TryGetValue(token, out ordinalScaleValue);
         if (!isExactOrdinal && !isOrdinalScale)
         {
             value = default;
@@ -709,9 +713,9 @@ internal class TokenMapWordsToNumberConverter(TokenMapWordsToNumberRules rules) 
     /// <param name="words">The normalized cardinal phrase or token.</param>
     /// <param name="value">When this method returns, the parsed numeric value.</param>
     /// <returns><c>true</c> if the phrase matched a glued cardinal scale; otherwise, <c>false</c>.</returns>
-    bool TryParseGluedScale(string words, out long value)
+    bool TryParseGluedScale(string words, int gluedScaleDepth, out long value)
     {
-        if (!TryParseGluedScaleParts(words, out var count, out var scaleValue))
+        if (!TryParseGluedScaleParts(words, gluedScaleDepth, out var count, out var scaleValue))
         {
             value = default;
             return false;
@@ -736,9 +740,9 @@ internal class TokenMapWordsToNumberConverter(TokenMapWordsToNumberRules rules) 
     /// <param name="count">When this method returns, the parsed scale count.</param>
     /// <param name="scaleValue">When this method returns, the parsed scale value.</param>
     /// <returns><c>true</c> if the phrase matched a glued cardinal scale; otherwise, <c>false</c>.</returns>
-    bool TryParseGluedScaleParts(string words, out long count, out long scaleValue)
+    bool TryParseGluedScaleParts(string words, int gluedScaleDepth, out long count, out long scaleValue)
     {
-        if (gluedScaleSuffixes is null || gluedScaleSuffixes.Count == 0)
+        if (gluedScaleDepth >= MaxGluedScaleDepth || gluedScaleSuffixes is null || gluedScaleSuffixes.Count == 0)
         {
             count = default;
             scaleValue = default;
@@ -752,7 +756,7 @@ internal class TokenMapWordsToNumberConverter(TokenMapWordsToNumberRules rules) 
                 continue;
             }
 
-            if (!TryParseGluedScaleCount(words[..^suffix.Key.Length], out count) ||
+            if (!TryParseGluedScaleCount(words[..^suffix.Key.Length], gluedScaleDepth + 1, out count) ||
                 count <= 0 ||
                 count >= suffix.Value)
             {
@@ -768,9 +772,15 @@ internal class TokenMapWordsToNumberConverter(TokenMapWordsToNumberRules rules) 
         return false;
     }
 
-    bool TryParseGluedScaleCount(string words, out long count)
+    bool TryParseGluedScaleCount(string words, int gluedScaleDepth, out long count)
     {
-        if (TryParseCardinal(words, false, out count, out _))
+        if (gluedScaleDepth >= MaxGluedScaleDepth)
+        {
+            count = default;
+            return false;
+        }
+
+        if (TryParseCardinal(words, false, gluedScaleDepth, out count, out _))
         {
             return true;
         }
@@ -933,9 +943,10 @@ internal class TokenMapWordsToNumberConverter(TokenMapWordsToNumberRules rules) 
     /// <returns><c>true</c> if the token should be skipped; otherwise, <c>false</c>.</returns>
     bool ShouldIgnore(string token)
     {
-        foreach (var ignoredToken in rules.IgnoredTokens)
+        var ignoredTokens = rules.IgnoredTokens;
+        for (var index = 0; index < ignoredTokens.Length; index++)
         {
-            if (token == ignoredToken)
+            if (token == ignoredTokens[index])
             {
                 return true;
             }
@@ -957,9 +968,10 @@ internal class TokenMapWordsToNumberConverter(TokenMapWordsToNumberRules rules) 
             return true;
         }
 
-        foreach (var multiplierToken in rules.MultiplierTokens)
+        var multiplierTokens = rules.MultiplierTokens;
+        for (var index = 0; index < multiplierTokens.Length; index++)
         {
-            if (token == multiplierToken)
+            if (token == multiplierTokens[index])
             {
                 return true;
             }
@@ -1135,9 +1147,9 @@ internal class TokenMapWordsToNumberConverter(TokenMapWordsToNumberRules rules) 
     /// <returns><c>true</c> if the token matches one of the candidates; otherwise, <c>false</c>.</returns>
     static bool IsMatch(string[] candidates, string token)
     {
-        foreach (var candidate in candidates)
+        for (var index = 0; index < candidates.Length; index++)
         {
-            if (token == candidate)
+            if (token == candidates[index])
             {
                 return true;
             }

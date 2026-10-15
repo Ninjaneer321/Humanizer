@@ -26,13 +26,39 @@ test('navigation remains operable and unclipped at reader breakpoints', async ({
     expect(pageWidth).toBeLessThanOrEqual(width);
     await expect(
       page.getByRole('heading', {
-        name: 'Turn .NET values into words people understand.',
+        name: 'Human-friendly text for .NET.',
       }),
     ).toBeVisible();
     await expect(
       page.getByRole('table', {name: 'Humanizer input and output examples'}),
     ).toBeVisible();
+    const releaseCue = page.getByText('What’s new in v4', {exact: true});
+    await expect(releaseCue).toBeVisible();
+    expect(
+      await releaseCue.evaluate((element) =>
+        Boolean(element.closest('a, button')),
+      ),
+    ).toBe(false);
   }
+
+  await page.setViewportSize({width: 1440, height: 900});
+  await page.goto('/');
+  const install = page.getByText('dotnet add package Humanizer', {exact: true});
+  const proof = page.getByRole('table', {
+    name: 'Humanizer input and output examples',
+  });
+  expect(
+    await install.evaluate(
+      (element) =>
+        element.getBoundingClientRect().bottom <= window.innerHeight + 1,
+    ),
+  ).toBe(true);
+  expect(
+    await proof.evaluate(
+      (element) =>
+        element.getBoundingClientRect().bottom <= window.innerHeight + 1,
+    ),
+  ).toBe(true);
 
   await page.setViewportSize({width: 320, height: 800});
   await page.goto('/');
@@ -70,18 +96,36 @@ test('navigation remains operable and unclipped at reader breakpoints', async ({
 test('canonical branding renders in the shell and page metadata', async ({
   page,
 }) => {
-  await page.goto('/');
-
   const logoPath = '/img/logo.png';
-  const navbarLogo = page.getByRole('img', {name: 'Humanizer home'});
-  const heroLogo = page.getByRole('img', {name: 'Humanizer logo'});
 
-  await expect(navbarLogo).toHaveAttribute('src', logoPath);
-  await expect(heroLogo).toHaveAttribute('src', logoPath);
-  await expect(heroLogo).toBeVisible();
-  await expect
-    .poll(() => heroLogo.evaluate((image: HTMLImageElement) => image.naturalWidth))
-    .toBe(115);
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({colorScheme});
+    await page.goto('/');
+
+    const navbarLogo = page.locator('.navbar__logo img').first();
+    const heroLogo = page.getByRole('img', {name: 'Humanizer logo'});
+
+    await expect(heroLogo).toBeVisible();
+    await expect
+      .poll(() =>
+        heroLogo.evaluate((image: HTMLImageElement) => image.naturalWidth),
+      )
+      .toBe(115);
+
+    for (const logo of [navbarLogo, heroLogo]) {
+      await expect(logo).toHaveAttribute('src', logoPath);
+      expect(
+        await logo.evaluate((image) => ({
+          background: getComputedStyle(image).backgroundColor,
+          padding: getComputedStyle(image).padding,
+        })),
+      ).toEqual({
+        background: 'rgba(0, 0, 0, 0)',
+        padding: '0px',
+      });
+    }
+  }
+
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute(
     'href',
     logoPath,
@@ -162,6 +206,98 @@ test('version preview is labeled, noindex, and self-canonical', async ({
   await expect(
     page.getByRole('link', {name: 'Edit or report this page'}),
   ).toBeVisible();
+});
+
+test('API reference drills from its index into types and members', async ({
+  page,
+}) => {
+  await page.goto('/docs/next/api/');
+
+  await expect(
+    page.getByRole('heading', {name: 'Humanizer API reference', level: 1}),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('link', {name: 'Humanizer Namespace'}).first(),
+  ).toHaveAttribute('href', '/docs/next/api/Humanizer/');
+
+  const typeLink = page.getByRole('link', {
+    name: 'StringHumanizeExtensions',
+    exact: true,
+  });
+  await expect(typeLink).toHaveAttribute(
+    'href',
+    '/docs/next/api/Humanizer.StringHumanizeExtensions/',
+  );
+  await typeLink.focus();
+  await expect(typeLink).toBeFocused();
+  await page.keyboard.press('Enter');
+
+  const memberLink = page
+    .getByRole('link', {name: 'Humanize(this string)', exact: true})
+    .first();
+  await expect(memberLink).toBeVisible();
+  await memberLink.focus();
+  await expect(memberLink).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect
+    .poll(() => page.evaluate(() => window.location.hash))
+    .toBe('#Humanizer.StringHumanizeExtensions.Humanize(thisstring)');
+  await expect(
+    page.getByText('public static string Humanize(this string input);', {
+      exact: true,
+    }),
+  ).toBeVisible();
+
+  await page.locator('.humanizerVersionDropdown').focus();
+  await page.keyboard.press('Enter');
+  await page.getByRole('link', {name: '3.0.10 (latest)'}).click();
+  await expect(page).toHaveURL(
+    /\/docs\/api\/Humanizer\.StringHumanizeExtensions\/#Humanizer\.StringHumanizeExtensions\.Humanize\(thisstring\)$/,
+  );
+});
+
+test('generic API identity stays C#-accurate across navigation and search', async ({
+  page,
+}) => {
+  const displayName = 'Humanizer.LocaliserRegistry<TLocaliser>';
+  const route =
+    '/docs/next/api/Humanizer.LocaliserRegistry_TLocaliser_/';
+
+  await page.goto(route);
+  await expect(
+    page.getByRole('heading', {name: displayName, level: 1}),
+  ).toBeVisible();
+  await expect(page).toHaveTitle(`${displayName} | Humanizer`);
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+    'content',
+    `API reference for ${displayName}.`,
+  );
+  await expect(page.locator('.theme-doc-breadcrumbs')).toContainText(
+    displayName,
+  );
+  await expect(
+    page
+      .locator('.theme-doc-sidebar-container')
+      .getByRole('link', {name: displayName, exact: true}),
+  ).toHaveAttribute('href', route);
+
+  await page.locator('.aa-DetachedSearchButton').click();
+  await page.locator('.aa-Input').fill('LocaliserRegistry');
+  const contextualResult = page
+    .locator(`.aa-ItemLink[href^="${route}"]`)
+    .first();
+  await expect(contextualResult).toBeVisible();
+  await expect(contextualResult).toContainText(displayName);
+  await expect(contextualResult).not.toContainText('_TLocaliser_');
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('button', {name: 'All versions'}).first().click();
+  const dialog = page.locator('pagefind-modal dialog[open]');
+  await dialog.getByRole('searchbox').fill('TLocaliser 4.0');
+  const allVersionResult = dialog.locator(`a[href="${route}"]`);
+  await expect(allVersionResult).toBeVisible();
+  await expect(allVersionResult).toContainText(displayName);
+  await expect(allVersionResult).not.toContainText('_TLocaliser_');
 });
 
 test('version not found preserves the requested API path and target version', async ({

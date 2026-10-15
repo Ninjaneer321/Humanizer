@@ -72,6 +72,142 @@ public partial class HumanizerSourceGeneratorTests
     }
 
     [Fact]
+    public void TimeOnlyClockNotationProfilesEmitSparseMinuteWordsAtTheirNumericSlots()
+    {
+        const string locale = """
+locale: 'zz'
+surfaces:
+  durationCases:
+    classification: 'not-applicable'
+  clock:
+    engine: 'phrase-clock'
+    hourMode: 'h24'
+    minuteWordsMap:
+      1: 'one minute'
+      59: 'fifty-nine minutes'
+""";
+
+        var runResult = RunGenerator(new InMemoryAdditionalText(
+            "src/Humanizer/Locales/zz.yml",
+            locale));
+
+        Assert.Empty(runResult.Diagnostics);
+
+        var expectedSlots = Enumerable.Range(0, 60)
+            .Select(static index => index switch
+            {
+                1 => "\"one minute\"",
+                59 => "\"fifty-nine minutes\"",
+                _ => "\"\""
+            });
+        var expectedArray = "new string[] { " + string.Join(", ", expectedSlots) + " }";
+        var source = GetGeneratedSource(runResult, "TimeOnlyToClockNotationProfileCatalog.g.cs");
+
+        Assert.Contains(expectedArray, source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TimeOnlyClockNotationProfilesRouteSouthSlavicAgreementByLocale()
+    {
+        var source = GetGeneratedSource("TimeOnlyToClockNotationProfileCatalog.g.cs");
+        var bosnianProfile = ExtractCacheClassBody(source, "bs_cache");
+        var croatianProfile = ExtractCacheClassBody(source, "hr_cache");
+        var slovenianProfile = ExtractCacheClassBody(source, "sl_cache");
+        var serbianProfile = ExtractCacheClassBody(source, "sr_cache");
+        var serbianLatinProfile = ExtractCacheClassBody(source, "sr_Latn_cache");
+
+        Assert.Contains("PhraseClockHourMode.H24, GrammaticalGender.Masculine, GrammaticalGender.Feminine", bosnianProfile, StringComparison.Ordinal);
+        Assert.Contains("PhraseClockHourMode.H24, GrammaticalGender.Masculine, GrammaticalGender.Feminine", croatianProfile, StringComparison.Ordinal);
+        Assert.Contains("PhraseClockHourMode.H24, GrammaticalGender.Feminine, GrammaticalGender.Feminine", slovenianProfile, StringComparison.Ordinal);
+        Assert.Contains("PhraseClockHourMode.H12, GrammaticalGender.Masculine, GrammaticalGender.Masculine", serbianProfile, StringComparison.Ordinal);
+        Assert.Contains("PhraseClockHourMode.H12, GrammaticalGender.Masculine, GrammaticalGender.Masculine", serbianLatinProfile, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TimeOnlyClockNotationProfilesEmitLatvianAndMalteseMinuteAgreement()
+    {
+        var source = GetGeneratedSource("TimeOnlyToClockNotationProfileCatalog.g.cs");
+        var latvianProfile = ExtractCacheClassBody(source, "lv_cache");
+        var malteseProfile = ExtractCacheClassBody(source, "mt_cache");
+
+        Assert.Contains("GrammaticalGender.Feminine", latvianProfile, StringComparison.Ordinal);
+        Assert.Contains("new string[] { \"\", \"minuta\" }", malteseProfile, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ChildClockMinuteWordsOverrideEquivalentParentNumericKeys()
+    {
+        const string parentLocale = """
+locale: 'zz'
+surfaces:
+  durationCases:
+    classification: 'not-applicable'
+  clock:
+    engine: 'phrase-clock'
+    minuteWordsMap:
+      1: 'parent minute'
+""";
+
+        const string childLocale = """
+locale: 'zz-child'
+variantOf: 'zz'
+surfaces:
+  clock:
+    minuteWordsMap:
+      01: 'child minute'
+""";
+
+        var runResult = RunGenerator(
+            new InMemoryAdditionalText("src/Humanizer/Locales/zz.yml", parentLocale),
+            new InMemoryAdditionalText("src/Humanizer/Locales/zz-child.yml", childLocale));
+
+        Assert.Empty(runResult.Diagnostics);
+
+        var source = GetGeneratedSource(runResult, "TimeOnlyToClockNotationProfileCatalog.g.cs");
+        var childProfile = ExtractCacheClassBody(source, "zz_child_cache");
+
+        Assert.Contains("new string[] { \"\", \"child minute\" }", childProfile, StringComparison.Ordinal);
+        Assert.DoesNotContain("parent minute", childProfile, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ChildSparseClockMinuteWordsOverlayDenseParentSlots()
+    {
+        const string parentLocale = """
+locale: 'zz'
+surfaces:
+  durationCases:
+    classification: 'not-applicable'
+  clock:
+    engine: 'phrase-clock'
+    minuteWordsMap:
+      - ''
+      - 'parent one'
+      - 'parent two'
+""";
+
+        const string childLocale = """
+locale: 'zz-child'
+variantOf: 'zz'
+surfaces:
+  clock:
+    minuteWordsMap:
+      1: 'child one'
+""";
+
+        var runResult = RunGenerator(
+            new InMemoryAdditionalText("src/Humanizer/Locales/zz.yml", parentLocale),
+            new InMemoryAdditionalText("src/Humanizer/Locales/zz-child.yml", childLocale));
+
+        Assert.Empty(runResult.Diagnostics);
+
+        var source = GetGeneratedSource(runResult, "TimeOnlyToClockNotationProfileCatalog.g.cs");
+        var childProfile = ExtractCacheClassBody(source, "zz_child_cache");
+
+        Assert.Contains("new string[] { \"\", \"child one\", \"parent two\" }", childProfile, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ChildDatePatternsOverrideInheritedDefaultDateConverters()
     {
         const string baseLocale = """
@@ -627,11 +763,14 @@ wordsToNumber:
     public void NumberToWordsProfilesUseSharedEastAsianEngine()
     {
         var source = GetGeneratedSource("NumberToWordsProfileCatalog.g.cs");
+        var metricScaleSource = GetGeneratedSource("LocalizedMetricScaleWordCatalog.g.cs");
 
         Assert.Contains("new EastAsianGroupedNumberToWordsConverter(", source);
         Assert.DoesNotContain("new ChineseNumberToWordsConverter()", source);
         Assert.DoesNotContain("new JapaneseNumberToWordsConverter()", source);
         Assert.DoesNotContain("new KoreanNumberToWordsConverter()", source);
+        Assert.Contains("case 'T': value = \"兆\"; return true;", metricScaleSource);
+        Assert.Contains("case 'Y': value = \"𥝱\"; return true;", metricScaleSource);
     }
 
     [Fact]
@@ -1156,8 +1295,10 @@ formatter:
       form: 'dual'
       units:
         - 'day'
+        - 42
       tenses:
         - 'past'
+        - 42
   exactTimeSpanForms:
     -
       number: 2

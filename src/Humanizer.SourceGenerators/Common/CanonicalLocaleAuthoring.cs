@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 
@@ -51,18 +52,26 @@ public sealed partial class HumanizerSourceGenerator
             "inflection"
         ];
 
+        static readonly string[] FormatterGrammarPropertyNames =
+        [
+            "pluralRule",
+            "casePluralRule",
+            "dataUnitPluralRule",
+            "dataUnitNonIntegralForm",
+            "prepositionMode",
+            "secondaryPlaceholderMode",
+            "timeUnitGenders"
+        ];
+
         internal static CanonicalLocaleDocument Parse(string localeCode, string fileText)
         {
             var root = SimpleYamlParser.Parse(fileText);
 
-            foreach (var property in root.Values.Keys)
+            foreach (var property in root.Values.Keys.Where(static property => !SupportedTopLevelNames.Contains(property, StringComparer.Ordinal)))
             {
-                if (!SupportedTopLevelNames.Contains(property, StringComparer.Ordinal))
-                {
-                    throw new InvalidOperationException(
-                        $"Locale '{localeCode}' defines unsupported top-level property '{property}'. " +
-                        $"Supported properties: {string.Join(", ", SupportedTopLevelNames)}.");
-                }
+                throw new InvalidOperationException(
+                    $"Locale '{localeCode}' defines unsupported top-level property '{property}'. " +
+                    $"Supported properties: {string.Join(", ", SupportedTopLevelNames)}.");
             }
 
             var declaredLocale = root.GetScalar("locale")
@@ -144,21 +153,9 @@ public sealed partial class HumanizerSourceGenerator
                     case "formatter":
                         features["formatter"] = surfaceMapping;
                         var grammar = ImmutableDictionary.CreateBuilder<string, SimpleYamlValue>(StringComparer.Ordinal);
-                        foreach (var propertyName in new[]
+                        foreach (var propertyName in FormatterGrammarPropertyNames.Where(surfaceMapping.Values.ContainsKey))
                         {
-                            "pluralRule",
-                            "casePluralRule",
-                            "dataUnitPluralRule",
-                            "dataUnitNonIntegralForm",
-                            "prepositionMode",
-                            "secondaryPlaceholderMode",
-                            "timeUnitGenders"
-                        })
-                        {
-                            if (surfaceMapping.TryGetValue(propertyName, out var propertyValue))
-                            {
-                                grammar[propertyName] = propertyValue;
-                            }
+                            grammar[propertyName] = surfaceMapping.Values[propertyName];
                         }
 
                         if (grammar.Count > 0)
@@ -185,7 +182,7 @@ public sealed partial class HumanizerSourceGenerator
                         break;
 
                     case "clock":
-                        features["timeOnlyToClockNotation"] = surfaceMapping;
+                        features["timeOnlyToClockNotation"] = NormalizeClockSurface(document.LocaleCode, surfaceMapping);
                         break;
 
                     case "compass":
@@ -213,13 +210,10 @@ public sealed partial class HumanizerSourceGenerator
             SimpleYamlMapping numberSurface,
             ImmutableDictionary<string, SimpleYamlValue>.Builder features)
         {
-            foreach (var property in numberSurface.Values.Keys)
+            foreach (var property in numberSurface.Values.Keys.Where(static property => property is not ("words" or "parse" or "formatting")))
             {
-                if (property is not ("words" or "parse" or "formatting"))
-                {
-                    throw new InvalidOperationException(
-                        $"Locale '{localeCode}.surfaces.number' defines unsupported property '{property}'. Supported properties: words, parse, formatting.");
-                }
+                throw new InvalidOperationException(
+                    $"Locale '{localeCode}.surfaces.number' defines unsupported property '{property}'. Supported properties: words, parse, formatting.");
             }
 
             if (numberSurface.TryGetValue("words", out var wordsValue))
@@ -257,15 +251,120 @@ public sealed partial class HumanizerSourceGenerator
             }
         }
 
-        static void ValidateNumberFormattingBlock(string localeCode, SimpleYamlMapping formatting)
+        static SimpleYamlMapping NormalizeClockSurface(string localeCode, SimpleYamlMapping clockSurface)
         {
-            foreach (var property in formatting.Values.Keys)
+            if (clockSurface.DuplicateKeys.Contains("minuteWordsMap"))
             {
-                if (property is not ("decimalSeparator" or "negativeSign" or "groupSeparator"))
+                throw new InvalidOperationException(
+                    $"Locale '{localeCode}.surfaces.clock.minuteWordsMap' defines duplicate entries; choose either the dense or sparse form.");
+            }
+
+            if (!clockSurface.TryGetValue("minuteWordsMap", out var minuteWordsMap))
+            {
+                return clockSurface;
+            }
+
+            const string path = "surfaces.clock.minuteWordsMap";
+            SimpleYamlValue normalizedMinuteWordsMap = minuteWordsMap switch
+            {
+                SimpleYamlSequence sequence => NormalizeMinuteWordsSequence(localeCode, path, sequence),
+                SimpleYamlMapping mapping => NormalizeMinuteWordsMapping(localeCode, path, mapping),
+                _ => throw new InvalidOperationException(
+                    $"Locale '{localeCode}.{path}' must be a sequence or sparse numeric mapping.")
+            };
+
+            var normalizedClockSurface = clockSurface.Values.ToBuilder();
+            normalizedClockSurface["minuteWordsMap"] = normalizedMinuteWordsMap;
+            return new SimpleYamlMapping(normalizedClockSurface.ToImmutable());
+        }
+
+        static SimpleYamlMapping NormalizeMinuteWordsSequence(
+            string localeCode,
+            string path,
+            SimpleYamlSequence sequence)
+        {
+            if (sequence.Items.Length > 60)
+            {
+                throw new InvalidOperationException(
+                    $"Locale '{localeCode}.{path}' must contain at most 60 entries for minute slots 0 through 59.");
+            }
+
+            var normalizedValues = ImmutableDictionary.CreateBuilder<string, SimpleYamlValue>(StringComparer.Ordinal);
+            for (var index = 0; index < sequence.Items.Length; index++)
+            {
+                ValidateMinuteWordValue(localeCode, path, index.ToString(CultureInfo.InvariantCulture), sequence.Items[index], allowEmpty: true);
+                normalizedValues[index.ToString(CultureInfo.InvariantCulture)] = sequence.Items[index];
+            }
+
+            return new SimpleYamlMapping(normalizedValues.ToImmutable());
+        }
+
+        static SimpleYamlMapping NormalizeMinuteWordsMapping(
+            string localeCode,
+            string path,
+            SimpleYamlMapping mapping)
+        {
+            if (!mapping.DuplicateKeys.IsDefaultOrEmpty)
+            {
+                throw new InvalidOperationException(
+                    $"Locale '{localeCode}.{path}' defines duplicate key '{mapping.DuplicateKeys[0]}'.");
+            }
+
+            var normalizedValues = ImmutableDictionary.CreateBuilder<string, SimpleYamlValue>(StringComparer.Ordinal);
+            foreach (var entry in mapping.Values)
+            {
+                if (!int.TryParse(entry.Key, NumberStyles.Integer, CultureInfo.InvariantCulture, out var minute))
                 {
                     throw new InvalidOperationException(
-                        $"Locale '{localeCode}.surfaces.number.formatting' defines unsupported property '{property}'. Supported properties: decimalSeparator, negativeSign, groupSeparator.");
+                        $"Locale '{localeCode}.{path}' requires integer keys. Invalid key '{entry.Key}'.");
                 }
+
+                if (minute is < 0 or > 59)
+                {
+                    throw new InvalidOperationException(
+                        $"Locale '{localeCode}.{path}' keys must be between 0 and 59. Invalid key '{entry.Key}'.");
+                }
+
+                var canonicalKey = minute.ToString(CultureInfo.InvariantCulture);
+                if (normalizedValues.ContainsKey(canonicalKey))
+                {
+                    throw new InvalidOperationException(
+                        $"Locale '{localeCode}.{path}' defines duplicate numeric minute slot {minute}.");
+                }
+
+                ValidateMinuteWordValue(localeCode, path, entry.Key, entry.Value, allowEmpty: false);
+                normalizedValues[canonicalKey] = entry.Value;
+            }
+
+            return new SimpleYamlMapping(normalizedValues.ToImmutable());
+        }
+
+        static void ValidateMinuteWordValue(
+            string localeCode,
+            string path,
+            string key,
+            SimpleYamlValue value,
+            bool allowEmpty)
+        {
+            if (value is not SimpleYamlScalar scalar || !scalar.IsString)
+            {
+                throw new InvalidOperationException(
+                    $"Locale '{localeCode}.{path}.{key}' must be a string.");
+            }
+
+            if (!allowEmpty && string.IsNullOrEmpty(scalar.Value))
+            {
+                throw new InvalidOperationException(
+                    $"Locale '{localeCode}.{path}.{key}' must be a non-empty string. Omit unused sparse slots instead.");
+            }
+        }
+
+        static void ValidateNumberFormattingBlock(string localeCode, SimpleYamlMapping formatting)
+        {
+            foreach (var property in formatting.Values.Keys.Where(static property => property is not ("decimalSeparator" or "negativeSign" or "groupSeparator")))
+            {
+                throw new InvalidOperationException(
+                    $"Locale '{localeCode}.surfaces.number.formatting' defines unsupported property '{property}'. Supported properties: decimalSeparator, negativeSign, groupSeparator.");
             }
 
             ValidateOptionalFormattingProperty(localeCode, formatting, "decimalSeparator");
@@ -304,13 +403,10 @@ public sealed partial class HumanizerSourceGenerator
             SimpleYamlMapping ordinalSurface,
             ImmutableDictionary<string, SimpleYamlValue>.Builder features)
         {
-            foreach (var property in ordinalSurface.Values.Keys)
+            foreach (var property in ordinalSurface.Values.Keys.Where(static property => property is not ("numeric" or "date" or "dateOnly")))
             {
-                if (property is not ("numeric" or "date" or "dateOnly"))
-                {
-                    throw new InvalidOperationException(
-                        $"Locale '{localeCode}.surfaces.ordinal' defines unsupported property '{property}'. Supported properties: numeric, date, dateOnly.");
-                }
+                throw new InvalidOperationException(
+                    $"Locale '{localeCode}.surfaces.ordinal' defines unsupported property '{property}'. Supported properties: numeric, date, dateOnly.");
             }
 
             if (ordinalSurface.TryGetValue("numeric", out var numericValue))
@@ -352,13 +448,10 @@ public sealed partial class HumanizerSourceGenerator
             SimpleYamlMapping calendarSurface,
             ImmutableDictionary<string, SimpleYamlValue>.Builder features)
         {
-            foreach (var property in calendarSurface.Values.Keys)
+            foreach (var property in calendarSurface.Values.Keys.Where(static property => property is not ("months" or "monthsGenitive" or "hijriMonths")))
             {
-                if (property is not ("months" or "monthsGenitive" or "hijriMonths"))
-                {
-                    throw new InvalidOperationException(
-                        $"Locale '{localeCode}.surfaces.calendar' defines unsupported property '{property}'. Supported properties: months, monthsGenitive, hijriMonths.");
-                }
+                throw new InvalidOperationException(
+                    $"Locale '{localeCode}.surfaces.calendar' defines unsupported property '{property}'. Supported properties: months, monthsGenitive, hijriMonths.");
             }
 
             var hasMonths = calendarSurface.TryGetValue("months", out var monthsValue);
@@ -370,13 +463,10 @@ public sealed partial class HumanizerSourceGenerator
                         $"Locale '{localeCode}.surfaces.calendar.months' must be a sequence of exactly 12 strings.");
                 }
 
-                foreach (var item in monthsSeq.Items)
+                if (monthsSeq.Items.Any(static item => item is not SimpleYamlScalar))
                 {
-                    if (item is not SimpleYamlScalar)
-                    {
-                        throw new InvalidOperationException(
-                            $"Locale '{localeCode}.surfaces.calendar.months' items must be scalar strings.");
-                    }
+                    throw new InvalidOperationException(
+                        $"Locale '{localeCode}.surfaces.calendar.months' items must be scalar strings.");
                 }
             }
 
@@ -394,13 +484,10 @@ public sealed partial class HumanizerSourceGenerator
                         $"Locale '{localeCode}.surfaces.calendar.monthsGenitive' must be a sequence of exactly 12 strings.");
                 }
 
-                foreach (var item in genitiveSeq.Items)
+                if (genitiveSeq.Items.Any(static item => item is not SimpleYamlScalar))
                 {
-                    if (item is not SimpleYamlScalar)
-                    {
-                        throw new InvalidOperationException(
-                            $"Locale '{localeCode}.surfaces.calendar.monthsGenitive' items must be scalar strings.");
-                    }
+                    throw new InvalidOperationException(
+                        $"Locale '{localeCode}.surfaces.calendar.monthsGenitive' items must be scalar strings.");
                 }
             }
 
@@ -491,18 +578,20 @@ public sealed partial class HumanizerSourceGenerator
             var engine = mapping.GetScalar("engine")
                 ?? throw new InvalidOperationException($"Locale '{localeCode}.surfaces.list' must define 'engine'.");
             var pairTemplate = mapping.GetScalar("pairTemplate");
-            var finalTemplate = mapping.GetScalar("finalTemplate") ?? pairTemplate;
+            var finalTemplate = mapping.GetScalar("finalTemplate");
             var serialTemplate = mapping.GetScalar("serialTemplate");
             if (engine == "oxford" && pairTemplate is null && finalTemplate is null)
             {
                 return mapping;
             }
 
-            if (pairTemplate is null || finalTemplate is null)
+            if (pairTemplate is null)
             {
                 throw new InvalidOperationException(
                     $"Locale '{localeCode}.surfaces.list' must define canonical list templates or legacy 'value'.");
             }
+
+            finalTemplate ??= pairTemplate;
 
             var values = ImmutableDictionary.CreateBuilder<string, SimpleYamlValue>(StringComparer.Ordinal);
             var oxfordComma = ReadBoolean(mapping, "oxfordComma");
@@ -564,13 +653,10 @@ public sealed partial class HumanizerSourceGenerator
         public static string ConvertToCanonicalYaml(string localeCode, string fileText)
         {
             var root = SimpleYamlParser.Parse(fileText);
-            foreach (var property in root.Values.Keys)
+            foreach (var property in root.Values.Keys.Where(static property => !LegacyTopLevelNames.Contains(property, StringComparer.Ordinal)))
             {
-                if (!LegacyTopLevelNames.Contains(property, StringComparer.Ordinal))
-                {
-                    throw new InvalidOperationException(
-                        $"Legacy locale '{localeCode}' defines unsupported top-level property '{property}'.");
-                }
+                throw new InvalidOperationException(
+                    $"Legacy locale '{localeCode}' defines unsupported top-level property '{property}'.");
             }
 
             var builder = new StringBuilder();
